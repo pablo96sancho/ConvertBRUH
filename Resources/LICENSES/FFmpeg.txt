@@ -1,0 +1,12 @@
+ConvertBRUH incluye los binarios ffmpeg y ffprobe de FFmpeg.
+
+FFmpeg — https://ffmpeg.org
+Build estático para macOS arm64 de Martin Riedl: https://ffmpeg.martin-riedl.de
+Configurado con --enable-gpl --enable-version3 (incluye libmp3lame, libwebp, entre otras),
+por lo que estos binarios se distribuyen bajo la GNU General Public License v3.
+
+Texto de la licencia: https://www.gnu.org/licenses/gpl-3.0.html
+Código fuente de FFmpeg: https://ffmpeg.org/download.html#get-sources
+Scripts de compilación del build: https://git.martin-riedl.de/ffmpeg/build-script
+
+ConvertBRUH invoca ffmpeg/ffprobe como procesos independientes; no enlaza con sus bibliotecas.
