@@ -1,0 +1,8 @@
+.DS_Store
+.build/
+build/
+dist/
+Resources/bin/
+ConvertBRUH-Paso0/App/build/
+ConvertBRUH-Paso0/.build/
+*.dmg
