@@ -65,7 +65,7 @@ Resultados en `docs/paso0.md`. **Si algo falla, parar y consultar antes de busca
 - `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]`.
 - `hasShadow = true`, fondo transparente y `registerForDraggedTypes([.fileURL])`.
 - Contenido en SwiftUI dentro de un `NSHostingView`.
-- **No debe robar el foco ni activar la app.** (Excepción: *Move* activa la app para mostrar el diálogo de carpeta.)
+- **No debe robar el foco ni activar la app.** (Excepciones: *Move* y *AirDrop* activan la app tras el drop, porque muestran una ventana propia.)
 
 ### 3.3 Aspecto del anillo (ver `Referencias/`)
 - Diámetro de unos 300 pt. Disco exterior negro con N porciones iguales en forma de sector anular con esquinas muy redondeadas y separación de unos 6 pt.
@@ -107,7 +107,7 @@ Vale para **cualquier archivo o carpeta**.
 | **COPY** | `doc.on.doc` | Escribe las file URLs en `NSPasteboard.general` (se pueden pegar en Finder, Slack, etc.) |
 | **COPY PATH** | `doc.text` | Copia las rutas POSIX como texto, una por línea |
 | **MOVE** | `folder` | `NSOpenPanel` para elegir carpeta (activa la app) → `moveItem` con la regla de colisiones de §4. Si el destino está en otro volumen, se copia y luego se borra el original solo si la copia terminó bien |
-| **FLOAT** | `pin` | Ventana flotante siempre encima con la miniatura (`QLThumbnailGenerator`) y el nombre; se puede volver a arrastrar a cualquier app (Finder, Ableton, navegador). Con varios archivos, una pila con contador. Botón ✕ para cerrar; se cierra sola tras un arrastre que acabe en `.move` |
+| **FLOAT** | `pin` | Ventana flotante siempre encima con la miniatura (`QLThumbnailGenerator`) y el nombre; se puede volver a arrastrar a cualquier app (Finder, Ableton, navegador). Con varios archivos, una pila con contador. Botón ✕ para cerrar. Como origen de arrastre solo ofrece copiar/enlazar: soltarlo en Finder nunca mueve el original. Arrastrar desde el borde mueve la ventana |
 
 Orden horario desde arriba: AIRDROP · FLOAT · COPY · MOVE · COPY PATH.
 
@@ -118,10 +118,10 @@ Procesados automáticos, sin ventanas. Generan un archivo nuevo junto al origina
 
 | Porción | SF Symbol | Proceso | Salida |
 |---|---|---|---|
-| **NORMALIZE** | `waveform` | `loudnorm` en dos pasadas: −14 LUFS integrados, pico real −1 dBTP. Primera pasada con `print_format=json` para medir; segunda con `measured_*`, `offset` y `linear=true`. **Siempre `-ar <sample rate original>`** (loudnorm sube a 192 kHz internamente) | Mismo formato que el original (vídeo → WAV), `_normalized` |
+| **NORMALIZE** | `waveform` | `loudnorm` en dos pasadas: −14 LUFS integrados, pico real −1 dBTP. Primera pasada con `print_format=json` para medir; segunda con `measured_*`, `offset` y `linear=true`. **Siempre `-ar <sample rate original>`** (loudnorm sube a 192 kHz internamente) | Mismo formato que el original si es MP3/WAV/M4A/FLAC/AIFF; si no (vídeo, OGG, OPUS…) → WAV. `_normalized` |
 | **COMPRESS** | `arrow.down.right.and.arrow.up.left` | MP3 VBR `-q:a 5` (~130 kbps). Sample rate según §5.1 | `.mp3`, `_compressed` |
 | **CHANNELS** | `hifispeaker.2` | Estéreo/multicanal → mono (`-ac 1`); mono → estéreo duplicado (`-ac 2`) | Mismo formato, `_mono` / `_stereo` |
-| **METADATA** | `tag` | Borra tags y carátula sin recodificar: `-map 0:a:0 -c copy -map_metadata -1` | Mismo formato, `_clean` |
+| **METADATA** | `tag` | Borra tags y carátula sin recodificar: `-map 0:a:0 -c copy -map_metadata -1 -map_chapters -1`. Solo archivos de audio, no vídeos | Misma extensión, `_clean` |
 
 - Para salidas sin pérdida, la resolución de bit depth sigue §5.1.
 - En lote mixto (mono + estéreo), CHANNELS se decide por archivo.
