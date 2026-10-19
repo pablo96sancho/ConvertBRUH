@@ -49,12 +49,15 @@ enum MediaProbe {
         for s in root.streams ?? [] {
             switch s.codec_type {
             case "audio" where info.audio == nil:
-                info.audio = .init(
+                // Por partes: compiladores anteriores no infieren la expresión entera a tiempo
+                let sampleRate: Int = Int(s.sample_rate ?? "") ?? 0
+                let rawBits: Int = Int(s.bits_per_raw_sample ?? "") ?? 0
+                info.audio = MediaInfo.Audio(
                     codec: s.codec_name ?? "",
-                    sampleRate: Int(s.sample_rate ?? "") ?? 0,
+                    sampleRate: sampleRate,
                     channels: s.channels ?? 0,
                     sampleFormat: s.sample_fmt ?? "",
-                    bitsPerRawSample: Int(s.bits_per_raw_sample ?? "") ?? 0,
+                    bitsPerRawSample: rawBits,
                     bitsPerSample: s.bits_per_sample ?? 0)
                 if info.duration == nil, let d = Double(s.duration ?? "") { info.duration = d }
             case "video":
