@@ -205,8 +205,8 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 - **Sin notificaciones del sistema.**
 
 ### Menú de la barra (`MenuBarExtra`)
-- Icono plantilla `Resources/MenuBar/MenuBarIcon(@2x).png`, generado desde `Assets/recovery-convert-svgrepo-com.png` con `scripts/make-menubar-icon.swift` (luminosidad → alfa para conservar los dos tonos). Con trabajos activos, el número al lado.
-- Icono de la app: `ConvertBRUH ICON.icon` (Icon Composer) compilado con `actool`; si `actool` no está operativo, `.icns` desde `Assets/ConvertBRUH ICON-iOS-Default-1024@1x.png` con margen estándar (`scripts/make-icns.swift`).
+- Icono plantilla `Resources/MenuBar/MenuBarIcon(@2x).png`, generado desde `ICON APP/recovery-convert-svgrepo-com.png` con `scripts/make-menubar-icon.swift` (luminosidad → alfa para conservar los dos tonos). Con trabajos activos, el número al lado.
+- Icono de la app: `ICON APP/ConvertBRUH ICON.icon` (Icon Composer) compilado con `actool`; si `actool` no está operativo, `.icns` desde `ICON APP/ConvertBRUH ICON Exports/` con margen estándar (`scripts/make-icns.swift`).
 - `Conversiones en curso: N` (deshabilitado, solo si N > 0)
 - `Último error: …` (solo si hay; clic → copia al portapapeles)
 - `Abrir al iniciar sesión` (toggle con `SMAppService.mainApp`)
@@ -276,10 +276,16 @@ ConvertBRUH/
 │   ├── Info.plist
 │   ├── LICENSES/                      // aviso GPL de ffmpeg + enlace a fuentes
 │   └── bin/ffmpeg, bin/ffprobe        // no se versionan; los descarga scripts/fetch-ffmpeg.sh
+├── ICON APP/                          // icono .icon (Icon Composer), exportación 1024 y PNG de la barra
+├── cover.jpg                          // portada del README (COVER_OUTPUT=cover.jpg swift test --filter CoverRender)
+├── build_and_run.sh                   // compila, instala en /Applications y abre
+├── create_dmg.sh                      // ConvertBRUH-Installer.dmg con hdiutil desde staging dir
+├── .github/workflows/release.yml      // tag v* → DMG en la Release (no pisa un DMG ya subido)
 └── scripts/
     ├── fetch-ffmpeg.sh                // descarga build estático arm64 (ver docs/paso0.md)
-    ├── build-app.sh                   // swift build -c release → .app → bin → codesign ad-hoc (bin primero)
-    └── make-dmg.sh                    // hdiutil desde staging dir
+    ├── build-app.sh                   // swift build -c release → .app → bin → icono → codesign ad-hoc (bin primero)
+    ├── make-icns.swift                // fallback del icono si actool no puede compilar el .icon
+    └── make-menubar-icon.swift        // PNG de ICON APP/ → icono plantilla de la barra
 ```
 
 `AudioConverter`, `AudioTools` y `OutputWriter` deben ser **funciones puras testeables**; argumentos y nombres se cubren con `swift test` sin ejecutar ffmpeg.

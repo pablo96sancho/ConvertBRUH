@@ -1,8 +1,12 @@
 .DS_Store
 .build/
+.swiftpm/
 build/
 dist/
+*.dmg
+xcuserdata/
+DerivedData/
+# Binarios de ffmpeg: se descargan con scripts/fetch-ffmpeg.sh
 Resources/bin/
 ConvertBRUH-Paso0/App/build/
 ConvertBRUH-Paso0/.build/
-*.dmg
