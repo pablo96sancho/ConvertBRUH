@@ -21,7 +21,7 @@ struct ConvertBRUHApp: App {
     }
 }
 
-/// Icono plantilla de la barra (Resources/MenuBar, generado desde Assets/ con scripts/make-menubar-icon.swift).
+/// Icono plantilla de la barra (Resources/MenuBar, generado desde ICON APP/ con scripts/make-menubar-icon.swift).
 enum MenuBarIcon {
     static let image: NSImage = {
         let image = NSImage(named: "MenuBarIcon")

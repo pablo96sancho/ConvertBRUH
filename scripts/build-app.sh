@@ -21,16 +21,16 @@ cp "$ROOT/Resources/MenuBar/"*.png "$APP/Contents/Resources/"
 chmod +x "$APP/Contents/Resources/bin/"*
 
 # Icono de la app: el .icon de Icon Composer con actool; si actool no está operativo,
-# .icns desde el PNG exportado (Assets/ConvertBRUH ICON-iOS-Default-1024@1x.png)
+# .icns desde el PNG exportado (ICON APP/ConvertBRUH ICON Exports/)
 ICON_TMP=$(mktemp -d)
-cp -R "$ROOT/ConvertBRUH ICON.icon" "$ICON_TMP/AppIcon.icon"
+cp -R "$ROOT/ICON APP/ConvertBRUH ICON.icon" "$ICON_TMP/AppIcon.icon"
 if xcrun actool "$ICON_TMP/AppIcon.icon" --compile "$APP/Contents/Resources" --app-icon AppIcon \
      --enable-on-demand-resources NO --development-region es --target-device mac --platform macosx \
      --minimum-deployment-target 13.0 --output-partial-info-plist "$ICON_TMP/partial.plist" >/dev/null 2>&1 \
    && [[ -f "$APP/Contents/Resources/AppIcon.icns" ]]; then
   echo "Icono: compilado desde ConvertBRUH ICON.icon con actool"
 else
-  swift "$ROOT/scripts/make-icns.swift" "$ROOT/Assets/ConvertBRUH ICON-iOS-Default-1024@1x.png" "$ICON_TMP/AppIcon.iconset" >/dev/null
+  swift "$ROOT/scripts/make-icns.swift" "$ROOT/ICON APP/ConvertBRUH ICON Exports/ConvertBRUH ICON-iOS-Default-1024@1x.png" "$ICON_TMP/AppIcon.iconset" >/dev/null
   iconutil -c icns "$ICON_TMP/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
   echo "Icono: .icns desde el PNG exportado (actool no disponible; ver 'sudo xcodebuild -runFirstLaunch')"
 fi

@@ -1,0 +1,38 @@
+name: Publicar release de macOS
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Crear DMG y publicarlo
+    runs-on: macos-15
+
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Crear instalador
+        run: bash create_dmg.sh
+
+      - name: Publicar el DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Si la release ya tiene DMG (subido a mano desde un Mac con Icon Composer), no se pisa
+          if gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null | grep -qx "ConvertBRUH-Installer.dmg"; then
+            echo "La release $TAG ya tiene DMG; no se reemplaza."
+          elif gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" ConvertBRUH-Installer.dmg
+          else
+            gh release create "$TAG" ConvertBRUH-Installer.dmg \
+              --title "ConvertBRUH $TAG" \
+              --notes "Instalador de ConvertBRUH para macOS (Apple Silicon). Descarga el DMG y arrastra la app a Applications."
+          fi

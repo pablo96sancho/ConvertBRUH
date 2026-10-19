@@ -37,14 +37,14 @@ final class ProcessRegistry: @unchecked Sendable {
     private var processes: [ObjectIdentifier: Process] = [:]
     private var temporaries: Set<URL> = []
 
-    func add(_ p: Process) { lock.withLock { processes[ObjectIdentifier(p)] = p } }
-    func remove(_ p: Process) { lock.withLock { _ = processes.removeValue(forKey: ObjectIdentifier(p)) } }
-    func addTemporary(_ url: URL) { lock.withLock { _ = temporaries.insert(url) } }
-    func removeTemporary(_ url: URL) { lock.withLock { _ = temporaries.remove(url) } }
+    func add(_ p: Process) { lock.sync { processes[ObjectIdentifier(p)] = p } }
+    func remove(_ p: Process) { lock.sync { _ = processes.removeValue(forKey: ObjectIdentifier(p)) } }
+    func addTemporary(_ url: URL) { lock.sync { _ = temporaries.insert(url) } }
+    func removeTemporary(_ url: URL) { lock.sync { _ = temporaries.remove(url) } }
 
     /// Termina todo y borra los temporales.
     func terminateAll() {
-        let (procs, temps) = lock.withLock { (Array(processes.values), temporaries) }
+        let (procs, temps) = lock.sync { (Array(processes.values), temporaries) }
         for p in procs where p.isRunning { p.terminate() }
         for p in procs { p.waitUntilExit() }
         for t in temps { try? FileManager.default.removeItem(at: t) }
@@ -133,7 +133,7 @@ private final class OutputCollector: @unchecked Sendable {
 
     /// Añade datos y devuelve las líneas completas nuevas.
     func appendOut(_ data: Data) -> [String] {
-        lock.withLock {
+        lock.sync {
             outData.append(data)
             pendingLine += String(decoding: data, as: UTF8.self)
             var lines = pendingLine.components(separatedBy: "\n")
@@ -142,7 +142,16 @@ private final class OutputCollector: @unchecked Sendable {
         }
     }
 
-    func appendErr(_ data: Data) { lock.withLock { errData.append(data) } }
-    var out: String { lock.withLock { String(decoding: outData, as: UTF8.self) } }
-    var err: String { lock.withLock { String(decoding: errData, as: UTF8.self) } }
+    func appendErr(_ data: Data) { lock.sync { errData.append(data) } }
+    var out: String { lock.sync { String(decoding: outData, as: UTF8.self) } }
+    var err: String { lock.sync { String(decoding: errData, as: UTF8.self) } }
+}
+
+private extension NSLock {
+    /// Como `withLock`, que en SDKs anteriores a macOS 14 no está disponible para macOS 13.
+    func sync<T>(_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
 }

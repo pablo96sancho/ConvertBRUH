@@ -1,4 +1,4 @@
-// Genera el icono plantilla de la barra de menú a partir de Assets/recovery-convert-svgrepo-com.png.
+// Genera el icono plantilla de la barra de menú a partir de ICON APP/recovery-convert-svgrepo-com.png.
 // Las plantillas solo usan el alfa: la luminosidad se pasa a alfa para conservar los dos tonos
 // (flechas opacas, cuadrados semitransparentes).
 // Uso: swift scripts/make-menubar-icon.swift <entrada.png> <carpeta-salida>
