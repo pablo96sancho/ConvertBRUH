@@ -39,6 +39,17 @@ final class RingPanel: NSPanel {
     }
 }
 
+/// Respuesta háptica en trackpads Force Touch (con ratón no hace nada).
+/// Durante el arrastre el dedo está sobre el trackpad, que es cuando macOS la reproduce.
+enum Haptics {
+    /// Cambio de porción.
+    static func tick() { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
+    /// Entrar en el centro (cancelar).
+    static func soft() { NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now) }
+    /// Cambio de anillo con la tecla.
+    static func level() { NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now) }
+}
+
 /// Vista contenedora: aloja el SwiftUI y hace de destino del arrastre.
 final class RingDropView: NSView {
     let model: RingModel
@@ -71,11 +82,15 @@ final class RingDropView: NSView {
         }
         switch hit(sender) {
         case .slice(let i):
-            if model.hovered != i { model.hovered = i }
+            if model.hovered != i {
+                model.hovered = i
+                Haptics.tick()
+            }
             model.centerHovered = false
             return .copy
         case .center:
             model.hovered = nil
+            if !model.centerHovered { Haptics.soft() }
             model.centerHovered = true
             return .copy
         case .outside:
