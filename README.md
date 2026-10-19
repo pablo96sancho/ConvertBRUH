@@ -10,10 +10,10 @@ ConvertBRUH es una aplicación ligera para la barra de menú de macOS que muestr
 
 ## 🚀 Características
 
-- ⇧ **Shift — Convertir:** MP3 · WAV · M4A · FLAC · AIFF para audio y vídeo, JPG · PNG · WEBP · PDF para imágenes
+- ⇧ **Shift — Convertir:** MP3 · WAV · M4A · FLAC · AIFF para audio, JPG · PNG · WEBP · PDF para imágenes y MP4 · MOV · GIF · AUDIO (extraer) · MP3 · WAV para vídeos
 - ⌥ **Option — Acciones:** AirDrop, Float (miniatura flotante para arrastrar a otra app), Copy, Move y Copy Path
-- ⌃ **Control — Herramientas:** Normalize (−14 LUFS), Compress, Channels (mono/estéreo) y Metadata (borrar tags, EXIF y GPS)
-- 🎧 Calidad cuidada: conserva bit depth, sample rate, tags y carátula
+- ⌃ **Control — Herramientas:** Normalize (−14 LUFS), Compress, Channels (mono/estéreo) y Metadata (borrar tags, EXIF y GPS); en vídeos, Compress (MP4 1080p) y Mute (quitar el audio)
+- 🎧 Calidad cuidada: conserva bit depth, sample rate, tags y carátula; en vídeo copia sin recodificar siempre que se puede
 - 📦 Lotes de varios archivos con progreso en el centro del anillo
 - 🔒 Nunca sobrescribe nada: `beat.mp3`, `beat (1).mp3`…
 - 💻 Nativa, ligera y sin Dock; funciona desde la barra de menú

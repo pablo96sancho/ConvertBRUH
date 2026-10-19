@@ -68,10 +68,6 @@ final class DragMonitor {
     /// Lee y clasifica los archivos del drag pasteboard. Los vídeos se comprueban con ffprobe.
     private func readFiles(from pasteboard: NSPasteboard) -> [DraggedFile] {
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        return urls.map { url in
-            var file = DraggedFile(url: url, kind: FileKind.classify(url))
-            if file.kind == .video { file.videoHasAudio = MediaProbe.hasAudioStreamSync(url) }
-            return file
-        }
+        return urls.map(DraggedFile.inspect)
     }
 }

@@ -51,9 +51,17 @@ private func file(_ name: String, _ kind: FileKind, videoAudio: Bool? = nil) -> 
         #expect(r == [.jpg, .webp, .pdf])
     }
 
-    @Test func videoSinAudioNoCuenta() {
-        #expect(TargetFormat.available(for: [file("v.mov", .video, videoAudio: false)]).isEmpty)
-        #expect(TargetFormat.available(for: [file("v.mov", .video, videoAudio: true)]) == TargetFormat.audio)
+    @Test func video() {
+        // Se oculta MOV porque el origen es MOV
+        #expect(TargetFormat.available(for: [file("v.mov", .video, videoAudio: true)]) == [.mp4, .gif, .extractAudio, .mp3, .wav])
+        #expect(TargetFormat.available(for: [file("v.mp4", .video, videoAudio: true)]).map(\.label) == ["MOV", "GIF", "AUDIO", "MP3", "WAV"])
+        // Sin pista de audio: solo formatos de vídeo
+        #expect(TargetFormat.available(for: [file("v.mkv", .video, videoAudio: false)]) == [.mp4, .mov, .gif])
+    }
+
+    @Test func videoMasAudioSoloComparteMP3yWAV() {
+        let r = TargetFormat.available(for: [file("v.mov", .video, videoAudio: true), file("a.flac", .audio)])
+        #expect(r == [.mp3, .wav])
     }
 
     @Test func soloCarpetasNoHayConvertirPeroSiAcciones() {
@@ -66,7 +74,8 @@ private func file(_ name: String, _ kind: FileKind, videoAudio: Bool? = nil) -> 
         #expect(ToolKind.available(for: [file("a.wav", .audio)]) == [.normalize, .compress, .channels, .metadata])
         #expect(ToolKind.available(for: [file("a.jpg", .image)]) == [.compress, .metadata])
         #expect(ToolKind.available(for: [file("a.gif", .image)]) == [.compress])
-        #expect(ToolKind.available(for: [file("v.mov", .video, videoAudio: true)]) == [.normalize, .compress, .channels])
+        #expect(ToolKind.available(for: [file("v.mov", .video, videoAudio: true)]) == [.compress, .mute])
+        #expect(ToolKind.available(for: [file("v.mov", .video, videoAudio: false)]) == [.compress])
         // Mezcla: COMPRESS y METADATA valen para ambos
         #expect(ToolKind.available(for: [file("a.wav", .audio), file("b.png", .image)]) == [.compress, .metadata])
     }

@@ -6,7 +6,7 @@ App de barra de menú para macOS que actúa sobre archivos **mientras los arrast
 |---|---|---|
 | **Shift** | **Convertir** | Crea una copia en otro formato junto al original |
 | **Option** | **Acciones** | AirDrop, Copy, Copy Path, Move, Float |
-| **Control** | **Herramientas** | Procesados automáticos (Normalize, Compress, Channels, Metadata) |
+| **Control** | **Herramientas** | Procesados automáticos (Normalize, Compress, Channels, Mute, Metadata) |
 
 Sueltas el archivo sobre una porción y se ejecuta. Todo es local y **el original nunca se modifica** (salvo *Move*, que lo mueve a propósito).
 
@@ -82,7 +82,7 @@ Con `UTType` del archivo (`resourceValues(forKeys: [.contentTypeKey])`):
 | Tipo | Conformidad |
 |---|---|
 | Audio: WAV, AIFF, FLAC, M4A, MP3, OGG, OPUS… | `.audio` |
-| Vídeo: MP4, MOV… (se usa su pista de audio) | `.movie` / `.audiovisualContent` |
+| Vídeo: MP4, MOV, MKV… | `.movie` / `.audiovisualContent`. Se inspecciona con ffprobe al arrastrar: un MP4 **sin imagen** (solo audio) cuenta como audio |
 | Imagen: PNG, JPG, HEIC, WEBP, TIFF, GIF, BMP… | `.image` |
 | Otro (carpetas, documentos…) | — (solo anillo de Acciones) |
 
@@ -92,11 +92,19 @@ Con `UTType` del archivo (`resourceValues(forKeys: [.contentTypeKey])`):
 
 | Entrada | Porciones |
 |---|---|
-| Audio / vídeo con audio | MP3 · WAV · M4A · FLAC · AIFF |
+| Audio | MP3 · WAV · M4A · FLAC · AIFF |
 | Imagen | JPG · PNG · WEBP · PDF |
+| Vídeo con audio | MP4 · MOV · GIF · AUDIO · MP3 · WAV |
+| Vídeo sin audio | MP4 · MOV · GIF |
 
-- Se oculta la porción del formato de origen cuando todos los archivos comparten ese formato.
-- Vídeo sin pista de audio → no válido.
+- Se oculta la porción del formato de origen cuando todos los archivos comparten ese formato (MP4 o MOV incluidos).
+- Selección mixta: intersección en el orden del primer archivo (vídeo + audio → MP3 · WAV).
+
+**Vídeo (`VideoConverter`, puro y testeado)**
+- **MP4 / MOV:** `-map 0:v:0 -map 0:a:0?`. El vídeo se **copia** si el códec cabe (MP4: h264/hevc; MOV: h264/hevc/prores; HEVC con `-tag:v hvc1`); si no, `libx264 -preset medium -crf 20 -pix_fmt yuv420p -vf scale=trunc(iw/2)*2:trunc(ih/2)*2` (H.264 no admite dimensiones impares). El audio se copia si cabe (MP4: aac/mp3/alac; MOV: además PCM); si no, AAC 192k. Siempre `-movflags +faststart`.
+- **GIF:** `fps=15`, ancho máx. 640, `palettegen`/`paletteuse`, `-loop 0`.
+- **AUDIO:** primera pista sin recodificar; extensión por códec (aac/alac → m4a, mp3, flac, opus, vorbis → ogg, ac3, eac3, PCM little-endian → wav). Otros códecs → WAV recodificado.
+- **MP3 / WAV:** como §5.1 con `-vn`.
 
 ### 3.6 Anillo ACCIONES (Option)
 Vale para **cualquier archivo o carpeta**.
@@ -123,6 +131,17 @@ Procesados automáticos, sin ventanas. Generan un archivo nuevo junto al origina
 | **CHANNELS** | `hifispeaker.2` | Estéreo/multicanal → mono (`-ac 1`); mono → estéreo duplicado (`-ac 2`) | Mismo formato, `_mono` / `_stereo` |
 | **METADATA** | `tag` | Borra tags y carátula sin recodificar: `-map 0:a:0 -c copy -map_metadata -1 -map_chapters -1`. Solo archivos de audio, no vídeos | Misma extensión, `_clean` |
 
+NORMALIZE y CHANNELS son solo para archivos de audio.
+
+**Vídeo**
+
+| Porción | SF Symbol | Proceso | Salida |
+|---|---|---|---|
+| **COMPRESS** | `arrow.down.right.and.arrow.up.left` | `libx264 -crf 26`, lado corto máx. 1080 px (pares), AAC 128k | `.mp4`, `_compressed` |
+| **MUTE** | `speaker.slash` | `-map 0:v -c copy -an` (sin recodificar). Solo vídeos con audio | Misma extensión, `_mute` |
+
+Elegir fotograma o recortar quedan fuera (necesitan editor; recortar ya lo hace Vista Rápida de Finder).
+
 - Para salidas sin pérdida, la resolución de bit depth sigue §5.1.
 - En lote mixto (mono + estéreo), CHANNELS se decide por archivo.
 
@@ -133,7 +152,7 @@ Procesados automáticos, sin ventanas. Generan un archivo nuevo junto al origina
 | **COMPRESS** | `arrow.down.right.and.arrow.up.left` | Lado mayor máx. 2560 px. Sin transparencia → JPG calidad 0.7. Con transparencia → PNG | `_compressed` |
 | **METADATA** | `tag` | Quita EXIF, GPS, IPTC y XMP. JPEG/HEIC/PNG/TIFF: sin recodificar (`CGImageDestinationCopyImageSource`). La orientación se conserva | Mismo formato, `_clean` |
 
-Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METADATA; imagen → COMPRESS · METADATA.
+Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METADATA; imagen → COMPRESS · METADATA; vídeo → COMPRESS · MUTE.
 
 ---
 
@@ -221,7 +240,7 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 |---|---|
 | Archivo de iCloud no descargado | `ubiquitousItemDownloadingStatus != .current` → "Descarga el archivo de iCloud primero" (Convertir/Herramientas) |
 | Archivo corrupto o códec no soportado | Error con el `stderr` resumido (máx. 200 caracteres) |
-| Vídeo sin pista de audio | No válido para Convertir/Herramientas |
+| Vídeo sin pista de audio | Solo MP4 · MOV · GIF y COMPRESS |
 | Carpetas en el arrastre | Solo cuentan para Acciones |
 | Nombres con `:`, `@`, emojis, espacios o acentos | Prefijo `file:` y `Process.arguments` (sin shell) |
 | Archivo borrado o movido entre drag y drop | "El archivo ya no existe" |
@@ -298,7 +317,6 @@ ConvertBRUH/
 - Acción Terminal
 - Ventana de ajustes o elección de calidad
 - Sustituir el original
-- Salida de vídeo
 - OGG, OPUS, WMA, HEIC, TIFF, AVIF y BMP como formatos de salida (sí se aceptan como entrada)
 - Notificaciones
 - Sandbox, App Store y notarización
@@ -311,7 +329,7 @@ ConvertBRUH/
 1. Shift + arrastre de un `.wav` → MP3 · M4A · FLAC · AIFF. Soltar en MP3 → `nombre.mp3` a 320 kbps junto al original, seleccionado en Finder.
 2. `.flac` 24 bit/96 kHz → WAV 24/96; MP3 48 kHz; M4A 48 kHz.
 3. MP3 con carátula → M4A y FLAC conservan carátula y tags.
-4. `.mov` muestra el anillo de audio y genera solo el audio.
+4. `.mov` muestra MP4 · GIF · AUDIO · MP3 · WAV; AUDIO extrae la pista sin recodificar. Un `.mov` H.264+AAC → MP4 se copia sin recodificar.
 5. `.heic` muestra JPG · PNG · WEBP · PDF; el JPG respeta la orientación.
 6. PNG con transparencia → JPG con fondo blanco.
 7. Repetir la misma conversión genera `nombre (1).ext`.

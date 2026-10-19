@@ -22,9 +22,7 @@ struct IntegracionTests {
     }
 
     private func dragged(_ url: URL) -> DraggedFile {
-        var f = DraggedFile(url: url, kind: FileKind.classify(url))
-        if f.kind == .video { f.videoHasAudio = MediaProbe.hasAudioStreamSync(url) }
-        return f
+        DraggedFile.inspect(url)
     }
 
     private func run(_ url: URL, _ op: SliceOperation) async throws -> URL {
@@ -84,7 +82,59 @@ struct IntegracionTests {
 
         let mudo = dir.appendingPathComponent("mudo.mov")
         try await ffmpeg(["-f", "lavfi", "-i", "testsrc=s=160x120:d=1", "-c:v", "libx264", "file:" + mudo.path])
-        #expect(TargetFormat.available(for: [dragged(mudo)]).isEmpty)
+        #expect(TargetFormat.available(for: [dragged(mudo)]) == [.mp4, .gif])
+    }
+
+    @Test func conversionesDeVideo() async throws {
+        // H.264 + PCM en MOV, como sale de muchas cámaras
+        let src = dir.appendingPathComponent("toma 1.mov")
+        try await ffmpeg(["-f", "lavfi", "-i", "testsrc=s=320x240:d=2:r=30", "-f", "lavfi", "-i", "sine=d=2",
+                          "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-shortest", "file:" + src.path])
+
+        let mp4 = try await run(src, .convert(.mp4))
+        #expect(mp4.lastPathComponent == "toma 1.mp4")
+        let m = try await MediaProbe.probe(mp4)
+        #expect(m.videoCodec == "h264" && m.audio?.codec == "aac")
+
+        let gif = try await run(src, .convert(.gif))
+        #expect(try await MediaProbe.probe(gif).videoCodec == "gif")
+
+        // AUDIO: PCM se extrae a WAV sin recodificar
+        let wav = try await run(src, .convert(.extractAudio))
+        #expect(wav.lastPathComponent == "toma 1.wav")
+        #expect(try await MediaProbe.probe(wav).audio?.codec == "pcm_s16le")
+
+        // AAC se extrae a M4A
+        let aacAudio = try await run(mp4, .convert(.extractAudio))
+        #expect(aacAudio.pathExtension == "m4a")
+        #expect(try await MediaProbe.probe(aacAudio).videoCodec == nil)
+
+        let muted = try await run(src, .tool(.mute))
+        #expect(muted.lastPathComponent == "toma 1_mute.mov")
+        let mi = try await MediaProbe.probe(muted)
+        #expect(mi.audio == nil && mi.videoCodec == "h264")
+    }
+
+    @Test func compressVideoImparYVertical() async throws {
+        let odd = dir.appendingPathComponent("odd.mov")
+        try await ffmpeg(["-f", "lavfi", "-i", "testsrc=s=641x361:d=1", "-c:v", "qtrle", "file:" + odd.path])
+        let comp = try await run(odd, .tool(.compress))
+        #expect(comp.lastPathComponent == "odd_compressed.mp4")
+
+        let vert = dir.appendingPathComponent("vert.mp4")
+        try await ffmpeg(["-f", "lavfi", "-i", "testsrc=s=1440x2560:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "file:" + vert.path])
+        let vcomp = try await run(vert, .tool(.compress))
+        let dims = try await FFmpegRunner.run(executable: Binaries.ffprobe, arguments: [
+            "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", "file:" + vcomp.path])
+        #expect(dims.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1080,1920")
+    }
+
+    @Test func mp4SoloAudioCuentaComoAudio() async throws {
+        let src = dir.appendingPathComponent("voz.mp4")
+        try await ffmpeg(["-f", "lavfi", "-i", "sine=d=1", "-c:a", "aac", "file:" + src.path])
+        let f = dragged(src)
+        #expect(f.kind == .audio)
+        #expect(TargetFormat.available(for: [f]) == TargetFormat.audio)
     }
 
     @Test func normalizeYChannels() async throws {

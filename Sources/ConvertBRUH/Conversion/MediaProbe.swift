@@ -15,6 +15,8 @@ struct MediaInfo: Equatable {
     var audio: Audio?
     /// Índice entre los streams de vídeo (`0:v:N`) de la carátula adjunta.
     var attachedPicVideoIndex: Int?
+    /// Códec del primer stream de vídeo real (no carátula). `nil` si no hay imagen en movimiento.
+    var videoCodec: String?
 }
 
 enum MediaProbe {
@@ -61,8 +63,10 @@ enum MediaProbe {
                     bitsPerSample: s.bits_per_sample ?? 0)
                 if info.duration == nil, let d = Double(s.duration ?? "") { info.duration = d }
             case "video":
-                if s.disposition?["attached_pic"] == 1, info.attachedPicVideoIndex == nil {
-                    info.attachedPicVideoIndex = videoIndex
+                if s.disposition?["attached_pic"] == 1 {
+                    if info.attachedPicVideoIndex == nil { info.attachedPicVideoIndex = videoIndex }
+                } else if info.videoCodec == nil {
+                    info.videoCodec = s.codec_name ?? ""
                 }
                 videoIndex += 1
             default:
@@ -81,17 +85,18 @@ enum MediaProbe {
         return try parse(Data(result.stdout.utf8))
     }
 
-    /// Comprobación rápida y síncrona de si un vídeo tiene audio (para decidir porciones durante el arrastre).
-    static func hasAudioStreamSync(_ url: URL) -> Bool {
+    /// Lectura síncrona (para decidir porciones durante el arrastre). `nil` si ffprobe falla.
+    static func probeSync(_ url: URL) -> MediaInfo? {
         let p = Process()
         p.executableURL = Binaries.ffprobe
-        p.arguments = ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", "file:" + url.path]
+        p.arguments = ["-v", "error", "-of", "json", "-show_streams", "-show_format", "file:" + url.path]
         let out = Pipe()
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { return false }
+        do { try p.run() } catch { return nil }
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
-        return p.terminationStatus == 0 && !data.isEmpty
+        guard p.terminationStatus == 0 else { return nil }
+        return try? parse(data)
     }
 }

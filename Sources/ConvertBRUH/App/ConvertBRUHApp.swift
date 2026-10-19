@@ -64,9 +64,9 @@ private struct MenuContent: View {
         alert.informativeText = """
         Arrastra un archivo y, mientras lo arrastras, mantén:
 
-        • Shift — Convertir (MP3, WAV, M4A, FLAC, AIFF · JPG, PNG, WEBP, PDF)
+        • Shift — Convertir (audio: MP3, WAV, M4A, FLAC, AIFF · imagen: JPG, PNG, WEBP, PDF · vídeo: MP4, MOV, GIF, AUDIO)
         • Option — Acciones (AirDrop, Float, Copy, Move, Copy Path)
-        • Control — Herramientas (Normalize, Compress, Channels, Metadata)
+        • Control — Herramientas (Normalize, Compress, Channels, Mute, Metadata)
 
         Suelta sobre una porción. Soltar en el centro cancela.
         """

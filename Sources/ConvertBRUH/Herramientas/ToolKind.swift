@@ -2,7 +2,8 @@ import Foundation
 
 /// Herramientas automáticas del anillo Shift+Option (§3.7).
 enum ToolKind: String, CaseIterable, Equatable {
-    case normalize, compress, channels, metadata
+    // Orden horario desde arriba
+    case normalize, compress, channels, mute, metadata
 
     var label: String { rawValue.uppercased() }
 
@@ -11,6 +12,7 @@ enum ToolKind: String, CaseIterable, Equatable {
         case .normalize: "waveform"
         case .compress: "arrow.down.right.and.arrow.up.left"
         case .channels: "hifispeaker.2"
+        case .mute: "speaker.slash"
         case .metadata: "tag"
         }
     }
@@ -21,9 +23,12 @@ enum ToolKind: String, CaseIterable, Equatable {
     func isValid(for file: DraggedFile) -> Bool {
         switch self {
         case .normalize, .channels:
-            return file.hasUsableAudio
+            return file.kind == .audio
         case .compress:
-            return file.hasUsableAudio || file.kind == .image
+            // Audio → MP3 ligero; imagen → JPG/PNG reducido; vídeo → MP4 1080p
+            return file.kind == .audio || file.kind == .image || file.kind == .video
+        case .mute:
+            return file.kind == .video && file.videoHasAudio == true
         case .metadata:
             if file.kind == .audio { return true }
             if file.kind == .image { return ToolKind.metadataImageExtensions.contains(file.url.pathExtension.lowercased()) }
@@ -33,7 +38,7 @@ enum ToolKind: String, CaseIterable, Equatable {
 
     /// Porciones disponibles: las válidas para todos los archivos procesables.
     static func available(for files: [DraggedFile]) -> [ToolKind] {
-        let usable = files.filter { $0.hasUsableAudio || $0.kind == .image }
+        let usable = files.filter { $0.kind != .other }
         guard !usable.isEmpty else { return [] }
         return allCases.filter { tool in usable.allSatisfy { tool.isValid(for: $0) } }
     }

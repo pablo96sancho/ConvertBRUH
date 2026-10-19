@@ -109,10 +109,54 @@ enum JobRunner {
             try await ffmpeg(args, duration: info.duration, range: 0...1, progress: progress)
             return Produced(file: out, base: OutputNaming.baseName(for: src), ext: target.fileExtension)
 
+        case .convert(let target) where target.isVideo:
+            let info = try await probe(src)
+            guard info.videoCodec != nil else { throw JobError("El archivo no tiene vídeo") }
+            let out = tmp(target.fileExtension)
+            let args = target == .gif
+                ? VideoConverter.gifArguments(input: src, output: out)
+                : VideoConverter.arguments(input: src, output: out, target: target, info: info, aacAT: Binaries.hasAACAT)
+            try await ffmpeg(args, duration: info.duration, range: 0...1, progress: progress)
+            return Produced(file: out, base: OutputNaming.baseName(for: src), ext: target.fileExtension)
+
+        case .convert(.extractAudio):
+            let info = try await probeAudio(src)
+            if let ext = VideoConverter.extractedAudioExtension(codec: info.audio?.codec ?? "") {
+                let out = tmp(ext)
+                try await ffmpeg(VideoConverter.extractAudioArguments(input: src, output: out),
+                                 duration: info.duration, range: 0...1, progress: progress)
+                return Produced(file: out, base: OutputNaming.baseName(for: src), ext: ext)
+            }
+            // Códec sin contenedor de audio propio: a WAV
+            let out = tmp("wav")
+            try await ffmpeg(AudioConverter.arguments(input: src, output: out, target: .wav, info: info,
+                                                      isVideoSource: true, aacAT: Binaries.hasAACAT),
+                             duration: info.duration, range: 0...1, progress: progress)
+            return Produced(file: out, base: OutputNaming.baseName(for: src), ext: "wav")
+
         case .convert(let target):
             let out = tmp(target.fileExtension)
             try await ImageConverter.convert(input: src, to: target, output: out)
             return Produced(file: out, base: OutputNaming.baseName(for: src), ext: target.fileExtension)
+
+        case .tool(let tool) where file.kind == .video:
+            let info = try await probe(src)
+            switch tool {
+            case .compress:
+                let out = tmp("mp4")
+                try await ffmpeg(VideoConverter.compressArguments(input: src, output: out, hasAudio: info.audio != nil,
+                                                                  aacAT: Binaries.hasAACAT),
+                                 duration: info.duration, range: 0...1, progress: progress)
+                return Produced(file: out, base: OutputNaming.baseName(for: src, suffix: "_compressed"), ext: "mp4")
+            case .mute:
+                let ext = src.pathExtension
+                let out = tmp(ext)
+                try await ffmpeg(VideoConverter.muteArguments(input: src, output: out),
+                                 duration: info.duration, range: 0...1, progress: progress)
+                return Produced(file: out, base: OutputNaming.baseName(for: src, suffix: "_mute"), ext: ext)
+            default:
+                throw JobError("Herramienta no válida para vídeos")
+            }
 
         case .tool(let tool) where file.kind == .image:
             switch tool {
@@ -175,6 +219,9 @@ enum JobRunner {
                 try await ffmpeg(AudioConverter.stripMetadataArguments(input: src, output: out),
                                  duration: info.duration, range: 0...1, progress: progress)
                 return Produced(file: out, base: OutputNaming.baseName(for: src, suffix: "_clean"), ext: ext)
+
+            case .mute:
+                throw JobError("MUTE solo vale para vídeos")
             }
 
         case .action:
@@ -182,13 +229,16 @@ enum JobRunner {
         }
     }
 
-    private static func probeAudio(_ url: URL) async throws -> MediaInfo {
-        let info: MediaInfo
+    private static func probe(_ url: URL) async throws -> MediaInfo {
         do {
-            info = try await MediaProbe.probe(url)
+            return try await MediaProbe.probe(url)
         } catch {
             throw JobError(error.localizedDescription)
         }
+    }
+
+    private static func probeAudio(_ url: URL) async throws -> MediaInfo {
+        let info = try await probe(url)
         guard info.audio != nil else { throw JobError("El archivo no tiene audio") }
         return info
     }
