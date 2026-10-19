@@ -45,7 +45,8 @@ struct GlassRingView: View {
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
                 .padding(2)
 
-            GlassEffectContainer(spacing: 2) {
+            // spacing 0: las porciones nunca se fusionan entre sí
+            GlassEffectContainer(spacing: 0) {
                 ZStack {
                     ForEach(Array(model.slices.enumerated()), id: \.element.id) { i, slice in
                         glassSlice(slice, index: i, geometry: g)
@@ -56,7 +57,7 @@ struct GlassRingView: View {
             glassCenter(g)
         }
         .frame(width: g.diameter, height: g.diameter)
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: model.hovered)
+        .animation(.easeOut(duration: 0.12), value: model.hovered)
         .animation(.easeOut(duration: 0.18), value: model.slices)
         .animation(.easeOut(duration: 0.18), value: model.phase)
     }
@@ -66,11 +67,10 @@ struct GlassRingView: View {
         let dimmed = model.phase != .choosing
         let labelRadius = (g.innerRadius + g.outerRadius - g.rim) / 2 + 2
         let labelPoint = RingGeometry.point(radius: labelRadius, angle: g.centerAngle(of: i))
-        let anchor = UnitPoint(x: 0.5 + labelPoint.x / g.diameter, y: 0.5 + labelPoint.y / g.diameter)
-        // Base algo esmerilada; la porción activa, claramente más clara
-        let glass: Glass = isHovered
-            ? .regular.tint(.white.opacity(0.5)).interactive()
-            : .regular.tint(.white.opacity(0.07)).interactive()
+        // El cristal es fijo e igual en todas las porciones: si cambia, crece o es `.interactive()`,
+        // el contenedor fusiona/deforma las piezas y aparece un "quesito" fantasma descuadrado.
+        // La porción activa se marca solo con el brillo de encima.
+        let glass: Glass = .regular.tint(.white.opacity(0.07))
 
         return VStack(spacing: 4) {
             if let symbol = slice.symbol {
@@ -87,10 +87,9 @@ struct GlassRingView: View {
         .offset(x: labelPoint.x, y: labelPoint.y)
         .frame(width: g.diameter, height: g.diameter)
         // Brillo de la porción activa: encima del cristal y debajo del texto
-        .background(RoundedSliceShape(geometry: g, index: i).fill(Color.white.opacity(isHovered ? 0.24 : 0)))
+        .background(RoundedSliceShape(geometry: g, index: i).fill(Color.white.opacity(isHovered ? 0.3 : 0)))
         .glassEffect(glass, in: RoundedSliceShape(geometry: g, index: i))
         .opacity(dimmed ? 0.55 : 1)
-        .scaleEffect(isHovered ? 1.06 : 1, anchor: anchor)
     }
 
     private func glassCenter(_ g: RingGeometry) -> some View {
