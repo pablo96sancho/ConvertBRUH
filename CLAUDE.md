@@ -6,7 +6,7 @@ App de barra de menú para macOS que actúa sobre archivos **mientras los arrast
 |---|---|---|
 | **Shift** | **Convertir** | Crea una copia en otro formato junto al original |
 | **Option** | **Acciones** | AirDrop, Copy, Copy Path, Move, Float |
-| **Shift + Option** | **Herramientas** | Procesados automáticos (Normalize, Compress, Channels, Metadata) |
+| **Control** | **Herramientas** | Procesados automáticos (Normalize, Compress, Channels, Metadata) |
 
 Sueltas el archivo sobre una porción y se ejecuta. Todo es local y **el original nunca se modifica** (salvo *Move*, que lo mueve a propósito).
 
@@ -30,7 +30,7 @@ Inspirada en Tangerine (fotos en `Referencias/`). Sin ventana de ajustes ni edit
 
 Resultados en `docs/paso0.md`. **Si algo falla, parar y consultar antes de buscar alternativas.** Prototipos en `ConvertBRUH-Paso0/`.
 
-1. **Monitor global de arrastre** sin permiso de Accesibilidad; `NSEvent.modifierFlags` fiable durante el arrastre para **Shift, Option y Shift+Option**.
+1. **Monitor global de arrastre** sin permiso de Accesibilidad; `NSEvent.modifierFlags` fiable durante el arrastre para **Shift, Option y Control**.
 2. **Drag pasteboard:** `changeCount` cambia respecto a `leftMouseDown` y `readObjects(... .urlReadingFileURLsOnly)` devuelve las URLs. Probar desde Finder, Escritorio y Ableton.
 3. **Panel creado a mitad de arrastre** (`.nonactivatingPanel`) recibe `draggingEntered`/`draggingUpdated`/`performDragOperation`.
 4. **Binario ffmpeg:** arm64, `otool -L` solo con sistema, encoders/decoders necesarios, ejecutable desde dentro del `.app` firmado ad-hoc.
@@ -53,7 +53,7 @@ Resultados en `docs/paso0.md`. **Si algo falla, parar y consultar antes de busca
    - el pasteboard contiene file URLs;
    - hay **Shift**, **Option** o ambos pulsados (sin Command ni Control);
    - el cursor se ha movido ≥ 8 pt.
-3. El tipo de anillo depende de los modificadores: Shift → Convertir, Option → Acciones, Shift+Option → Herramientas.
+3. El tipo de anillo depende del modificador: Shift → Convertir, Option → Acciones, Control → Herramientas. **Solo cuenta una tecla a la vez** (Shift+Option se descartó porque cambiar entre combinaciones era poco fiable): con dos teclas o con Command no se elige ningún anillo, y si ya hay uno visible se queda como está.
 4. **Mientras está visible, el anillo sigue los modificadores**: si cambian a otra combinación válida, se cambia de anillo con una transición corta. Si se sueltan todas las teclas, se queda el último anillo hasta `leftMouseUp`.
 5. El anillo se centra en el cursor y se recoloca dentro del `visibleFrame` de la pantalla actual.
 6. Si al soltar el ratón no se ha hecho drop en una porción, el anillo se cierra sin hacer nada.
@@ -111,7 +111,7 @@ Vale para **cualquier archivo o carpeta**.
 
 Orden horario desde arriba: AIRDROP · FLOAT · COPY · MOVE · COPY PATH.
 
-### 3.7 Anillo HERRAMIENTAS (Shift + Option)
+### 3.7 Anillo HERRAMIENTAS (Control)
 Procesados automáticos, sin ventanas. Generan un archivo nuevo junto al original con sufijo (`beat_normalized.wav`).
 
 **Audio / vídeo con audio**
@@ -205,11 +205,12 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 - **Sin notificaciones del sistema.**
 
 ### Menú de la barra (`MenuBarExtra`)
-- Icono SF Symbol `arrow.triangle.2.circlepath`; variante animada/rellena con trabajos.
+- Icono plantilla `Resources/MenuBar/MenuBarIcon(@2x).png`, generado desde `Assets/recovery-convert-svgrepo-com.png` con `scripts/make-menubar-icon.swift` (luminosidad → alfa para conservar los dos tonos). Con trabajos activos, el número al lado.
+- Icono de la app: `ConvertBRUH ICON.icon` (Icon Composer) compilado con `actool`; si `actool` no está operativo, `.icns` desde `Assets/ConvertBRUH ICON-iOS-Default-1024@1x.png` con margen estándar (`scripts/make-icns.swift`).
 - `Conversiones en curso: N` (deshabilitado, solo si N > 0)
 - `Último error: …` (solo si hay; clic → copia al portapapeles)
 - `Abrir al iniciar sesión` (toggle con `SMAppService.mainApp`)
-- `Cómo se usa` (alerta: "Arrastra un archivo y mantén Shift para convertir, Option para acciones o Shift+Option para herramientas")
+- `Cómo se usa` (alerta: "Arrastra un archivo y mantén Shift para convertir, Option para acciones o Control para herramientas")
 - `Salir de ConvertBRUH`
 
 ---
@@ -317,9 +318,9 @@ ConvertBRUH/
 14. Option + arrastre de una carpeta → anillo de Acciones; COPY PATH deja la ruta en el portapapeles.
 15. FLOAT de un `.wav` → miniatura flotante que se puede arrastrar a Ableton y crea el clip.
 16. MOVE a otra carpeta con un archivo del mismo nombre → `nombre (1).ext`.
-17. Shift + Option sobre un WAV → NORMALIZE produce `nombre_normalized.wav` a −14 LUFS (±0,5).
+17. Control sobre un WAV → NORMALIZE produce `nombre_normalized.wav` a −14 LUFS (±0,5).
 18. METADATA sobre un JPG con GPS → `nombre_clean.jpg` sin GPS y con los mismos píxeles.
-19. Cambiar de Shift a Shift+Option durante el arrastre cambia el anillo sin cerrarlo.
+19. Cambiar de Shift a Control durante el arrastre cambia el anillo sin cerrarlo.
 
 ---
 
