@@ -30,8 +30,10 @@ final class RingModel: ObservableObject {
     }
 }
 
-/// Aspecto Liquid Glass (macOS 26+): cada porción es una pieza de cristal sobre un disco oscuro
-/// translúcido; la porción bajo el cursor se tiñe y crece.
+/// Aspecto Liquid Glass (macOS 26+). Dos capas:
+/// 1. Cristal: una pieza por porción, **siempre fija**. Si el cristal cambia, crece o es `.interactive()`,
+///    el contenedor fusiona/deforma las piezas y aparece un "quesito" fantasma descuadrado.
+/// 2. Encima, sin cristal: brillo + texto de cada porción. Esta capa es la que hace zoom en la activa.
 @available(macOS 26.0, *)
 struct GlassRingView: View {
     @ObservedObject var model: RingModel
@@ -48,29 +50,36 @@ struct GlassRingView: View {
             // spacing 0: las porciones nunca se fusionan entre sí
             GlassEffectContainer(spacing: 0) {
                 ZStack {
-                    ForEach(Array(model.slices.enumerated()), id: \.element.id) { i, slice in
-                        glassSlice(slice, index: i, geometry: g)
+                    ForEach(0..<model.slices.count, id: \.self) { i in
+                        Color.clear
+                            .frame(width: g.diameter, height: g.diameter)
+                            .glassEffect(.regular.tint(.white.opacity(0.07)), in: RoundedSliceShape(geometry: g, index: i))
                     }
                 }
+            }
+            .opacity(model.phase == .choosing ? 1 : 0.55)
+
+            ForEach(Array(model.slices.enumerated()), id: \.element.id) { i, slice in
+                sliceFace(slice, index: i, geometry: g)
             }
 
             glassCenter(g)
         }
         .frame(width: g.diameter, height: g.diameter)
-        .animation(.easeOut(duration: 0.12), value: model.hovered)
+        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: model.hovered)
         .animation(.easeOut(duration: 0.18), value: model.slices)
         .animation(.easeOut(duration: 0.18), value: model.phase)
     }
 
-    private func glassSlice(_ slice: RingSlice, index i: Int, geometry g: RingGeometry) -> some View {
+    /// Brillo + etiqueta de una porción; la activa se ilumina y hace zoom.
+    private func sliceFace(_ slice: RingSlice, index i: Int, geometry g: RingGeometry) -> some View {
         let isHovered = model.hovered == i && model.phase == .choosing
         let dimmed = model.phase != .choosing
         let labelRadius = (g.innerRadius + g.outerRadius - g.rim) / 2 + 2
         let labelPoint = RingGeometry.point(radius: labelRadius, angle: g.centerAngle(of: i))
-        // El cristal es fijo e igual en todas las porciones: si cambia, crece o es `.interactive()`,
-        // el contenedor fusiona/deforma las piezas y aparece un "quesito" fantasma descuadrado.
-        // La porción activa se marca solo con el brillo de encima.
-        let glass: Glass = .regular.tint(.white.opacity(0.07))
+        // El zoom se ancla en el centro de la porción para que crezca "en su sitio"
+        let anchor = UnitPoint(x: 0.5 + labelPoint.x / g.diameter, y: 0.5 + labelPoint.y / g.diameter)
+        let shape = RoundedSliceShape(geometry: g, index: i)
 
         return VStack(spacing: 4) {
             if let symbol = slice.symbol {
@@ -86,10 +95,15 @@ struct GlassRingView: View {
         .shadow(color: .black.opacity(0.35), radius: 1.5, y: 1)
         .offset(x: labelPoint.x, y: labelPoint.y)
         .frame(width: g.diameter, height: g.diameter)
-        // Brillo de la porción activa: encima del cristal y debajo del texto
-        .background(RoundedSliceShape(geometry: g, index: i).fill(Color.white.opacity(isHovered ? 0.3 : 0)))
-        .glassEffect(glass, in: RoundedSliceShape(geometry: g, index: i))
-        .opacity(dimmed ? 0.55 : 1)
+        // Brillo de la porción activa con borde de luz, debajo del texto
+        .background {
+            shape.fill(Color.white.opacity(isHovered ? 0.28 : 0))
+                .overlay(shape.stroke(Color.white.opacity(isHovered ? 0.45 : 0), lineWidth: 1))
+                .shadow(color: .black.opacity(isHovered ? 0.35 : 0), radius: 8, y: 3)
+        }
+        .scaleEffect(isHovered ? 1.07 : 1, anchor: anchor)
+        .zIndex(isHovered ? 1 : 0)
+        .allowsHitTesting(false)
     }
 
     private func glassCenter(_ g: RingGeometry) -> some View {
