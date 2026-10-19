@@ -4,15 +4,16 @@ import Foundation
 enum RingKind: Equatable {
     case convertir      // Shift
     case acciones       // Option
-    case herramientas   // Shift + Option
+    case herramientas   // Control
 
-    /// Combinación exacta de modificadores → anillo. Command o Control lo anulan.
+    /// Una sola tecla → anillo. Combinaciones (o Command) no eligen ninguno, así que al pasar
+    /// de una tecla a otra el anillo visible se queda como está hasta que solo quede una.
     static func from(shift: Bool, option: Bool, command: Bool, control: Bool) -> RingKind? {
-        guard !command, !control else { return nil }
-        switch (shift, option) {
-        case (true, false): return .convertir
-        case (false, true): return .acciones
-        case (true, true): return .herramientas
+        guard !command else { return nil }
+        switch (shift, option, control) {
+        case (true, false, false): return .convertir
+        case (false, true, false): return .acciones
+        case (false, false, true): return .herramientas
         default: return nil
         }
     }

@@ -20,7 +20,9 @@ private func file(_ name: String, _ kind: FileKind, videoAudio: Bool? = nil) -> 
     @Test func modificadores() {
         #expect(RingKind.from(shift: true, option: false, command: false, control: false) == .convertir)
         #expect(RingKind.from(shift: false, option: true, command: false, control: false) == .acciones)
-        #expect(RingKind.from(shift: true, option: true, command: false, control: false) == .herramientas)
+        #expect(RingKind.from(shift: false, option: false, command: false, control: true) == .herramientas)
+        #expect(RingKind.from(shift: true, option: true, command: false, control: false) == nil)
+        #expect(RingKind.from(shift: true, option: false, command: false, control: true) == nil)
         #expect(RingKind.from(shift: true, option: false, command: true, control: false) == nil)
         #expect(RingKind.from(shift: false, option: false, command: false, control: false) == nil)
     }

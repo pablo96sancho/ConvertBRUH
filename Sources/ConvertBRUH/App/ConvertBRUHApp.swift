@@ -10,9 +10,26 @@ struct ConvertBRUHApp: App {
         MenuBarExtra {
             MenuContent(state: state)
         } label: {
-            Image(systemName: state.activeJobs > 0 ? "arrow.triangle.2.circlepath.circle.fill" : "arrow.triangle.2.circlepath")
+            // Con trabajos activos, el número junto al icono
+            if state.activeJobs > 0 {
+                Image(nsImage: MenuBarIcon.image)
+                Text("\(state.activeJobs)")
+            } else {
+                Image(nsImage: MenuBarIcon.image)
+            }
         }
     }
+}
+
+/// Icono plantilla de la barra (Resources/MenuBar, generado desde Assets/ con scripts/make-menubar-icon.swift).
+enum MenuBarIcon {
+    static let image: NSImage = {
+        let image = NSImage(named: "MenuBarIcon")
+            ?? NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "ConvertBRUH")!
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
+    }()
 }
 
 private struct MenuContent: View {
@@ -49,7 +66,7 @@ private struct MenuContent: View {
 
         • Shift — Convertir (MP3, WAV, M4A, FLAC, AIFF · JPG, PNG, WEBP, PDF)
         • Option — Acciones (AirDrop, Float, Copy, Move, Copy Path)
-        • Shift + Option — Herramientas (Normalize, Compress, Channels, Metadata)
+        • Control — Herramientas (Normalize, Compress, Channels, Metadata)
 
         Suelta sobre una porción. Soltar en el centro cancela.
         """
