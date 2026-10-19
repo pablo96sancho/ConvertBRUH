@@ -12,7 +12,7 @@ permissions:
 jobs:
   release:
     name: Crear DMG y publicarlo
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Obtener el código
