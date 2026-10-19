@@ -59,6 +59,7 @@ final class RingController {
         model.slices = slices
         model.hovered = nil
         model.sizeText = Self.sizeText(for: files, kind: kind)
+        Haptics.level()
     }
 
     func mouseUp() {

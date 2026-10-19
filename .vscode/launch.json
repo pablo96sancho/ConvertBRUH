@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ConvertBRUH}",
+            "name": "Debug ConvertBRUH",
+            "target": "ConvertBRUH",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ConvertBRUH"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ConvertBRUH}",
+            "name": "Release ConvertBRUH",
+            "target": "ConvertBRUH",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ConvertBRUH"
+        }
+    ]
+}

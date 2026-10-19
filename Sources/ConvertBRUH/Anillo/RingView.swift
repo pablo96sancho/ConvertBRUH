@@ -18,6 +18,94 @@ final class RingModel: ObservableObject {
     @Published var phase: Phase = .choosing
 
     var geometry: RingGeometry { RingGeometry(count: slices.count) }
+
+    /// Texto y color de la cápsula central según la fase.
+    var centerText: (String, Color) {
+        switch phase {
+        case .choosing: return centerHovered ? ("Cancelar", .white) : (sizeText, .white)
+        case .working(let t): return (t, .white)
+        case .success: return ("✓", .white)
+        case .error: return ("Error", Color(red: 1, green: 0.32, blue: 0.3))
+        }
+    }
+}
+
+/// Aspecto Liquid Glass (macOS 26+): cada porción es una pieza de cristal sobre un disco oscuro
+/// translúcido; la porción bajo el cursor se tiñe y crece.
+@available(macOS 26.0, *)
+struct GlassRingView: View {
+    @ObservedObject var model: RingModel
+
+    var body: some View {
+        let g = model.geometry
+        ZStack {
+            // Disco: oscuro y translúcido para que el cristal de las porciones tenga contraste
+            Circle()
+                .fill(Color.black.opacity(0.3))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                .padding(2)
+
+            GlassEffectContainer(spacing: 2) {
+                ZStack {
+                    ForEach(Array(model.slices.enumerated()), id: \.element.id) { i, slice in
+                        glassSlice(slice, index: i, geometry: g)
+                    }
+                }
+            }
+
+            glassCenter(g)
+        }
+        .frame(width: g.diameter, height: g.diameter)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: model.hovered)
+        .animation(.easeOut(duration: 0.18), value: model.slices)
+        .animation(.easeOut(duration: 0.18), value: model.phase)
+    }
+
+    private func glassSlice(_ slice: RingSlice, index i: Int, geometry g: RingGeometry) -> some View {
+        let isHovered = model.hovered == i && model.phase == .choosing
+        let dimmed = model.phase != .choosing
+        let labelRadius = (g.innerRadius + g.outerRadius - g.rim) / 2 + 2
+        let labelPoint = RingGeometry.point(radius: labelRadius, angle: g.centerAngle(of: i))
+        let anchor = UnitPoint(x: 0.5 + labelPoint.x / g.diameter, y: 0.5 + labelPoint.y / g.diameter)
+        // Base algo esmerilada; la porción activa, claramente más clara
+        let glass: Glass = isHovered
+            ? .regular.tint(.white.opacity(0.5)).interactive()
+            : .regular.tint(.white.opacity(0.07)).interactive()
+
+        return VStack(spacing: 4) {
+            if let symbol = slice.symbol {
+                Image(systemName: symbol).font(.system(size: 19, weight: .semibold))
+            }
+            Text(slice.label)
+                .font(.system(size: slice.symbol == nil ? 17 : 12, weight: .heavy))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .fixedSize()
+        }
+        .foregroundStyle(Color.white.opacity(dimmed ? 0.35 : 1))
+        .shadow(color: .black.opacity(0.35), radius: 1.5, y: 1)
+        .offset(x: labelPoint.x, y: labelPoint.y)
+        .frame(width: g.diameter, height: g.diameter)
+        // Brillo de la porción activa: encima del cristal y debajo del texto
+        .background(RoundedSliceShape(geometry: g, index: i).fill(Color.white.opacity(isHovered ? 0.24 : 0)))
+        .glassEffect(glass, in: RoundedSliceShape(geometry: g, index: i))
+        .opacity(dimmed ? 0.55 : 1)
+        .scaleEffect(isHovered ? 1.06 : 1, anchor: anchor)
+    }
+
+    private func glassCenter(_ g: RingGeometry) -> some View {
+        let (text, color) = model.centerText
+        let cancel = model.centerHovered && model.phase == .choosing
+        return Text(text)
+            .font(.system(size: 15, weight: .heavy).monospacedDigit())
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .glassEffect(cancel ? .regular.tint(.white.opacity(0.25)) : .regular, in: Capsule())
+            .frame(maxWidth: g.innerRadius * 2 + 20)
+    }
 }
 
 /// Sector anular con esquinas redondeadas.
@@ -55,12 +143,37 @@ struct SliceShape: Shape {
     }
 }
 
+/// Porción con las esquinas redondeadas ya dentro del contorno (para `glassEffect(in:)`, que
+/// necesita una forma real y no admite el truco de relleno + trazo).
+@available(macOS 26.0, *)
+struct RoundedSliceShape: Shape {
+    var geometry: RingGeometry
+    var index: Int
+    var cornerRadius: CGFloat = 14
+
+    func path(in rect: CGRect) -> Path {
+        let core = SliceShape(geometry: geometry, index: index, cornerRadius: cornerRadius).path(in: rect).cgPath
+        // Contorno engordado con uniones redondas ∪ interior = sector con esquinas redondeadas
+        let band = core.copy(strokingWithWidth: cornerRadius * 2, lineCap: .round, lineJoin: .round, miterLimit: 10)
+        return Path(band.union(core))
+    }
+}
+
 struct RingView: View {
     @ObservedObject var model: RingModel
 
     var body: some View {
+        if #available(macOS 26.0, *) {
+            GlassRingView(model: model)
+        } else {
+            classicBody
+        }
+    }
+
+    /// Aspecto para macOS 13–15: disco oscuro y porciones translúcidas.
+    private var classicBody: some View {
         let g = model.geometry
-        ZStack {
+        return ZStack {
             // Disco exterior oscuro
             Circle()
                 .fill(Color.black.opacity(0.82))
@@ -112,14 +225,7 @@ struct RingView: View {
     }
 
     private func center(_ g: RingGeometry) -> some View {
-        let (text, color): (String, Color) = {
-            switch model.phase {
-            case .choosing: return model.centerHovered ? ("Cancelar", .white) : (model.sizeText, .white)
-            case .working(let t): return (t, .white)
-            case .success: return ("✓", .white)
-            case .error: return ("Error", Color(red: 1, green: 0.32, blue: 0.3))
-            }
-        }()
+        let (text, color) = model.centerText
         return ZStack {
             Circle().fill(Color.black.opacity(0.6)).frame(width: g.innerRadius * 2, height: g.innerRadius * 2)
             Text(text)
