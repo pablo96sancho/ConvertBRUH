@@ -113,7 +113,7 @@ final class RingController {
     private func startBatch(_ operation: SliceOperation) {
         let targets = files.filter { file in
             switch operation {
-            case .convert(let f): f.isAudio ? file.hasUsableAudio : file.kind == .image
+            case .convert(let f): TargetFormat.targets(for: file).contains(f)
             case .tool(let t): t.isValid(for: file)
             case .action: false
             }
@@ -239,7 +239,7 @@ final class RingController {
         let relevant: [DraggedFile]
         switch kind {
         case .acciones: relevant = files
-        case .convertir, .herramientas: relevant = files.filter { $0.hasUsableAudio || $0.kind == .image }
+        case .convertir, .herramientas: relevant = files.filter { $0.kind != .other }
         }
         var bytes: Int64 = 0
         var folders = 0
