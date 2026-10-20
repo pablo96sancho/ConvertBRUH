@@ -79,6 +79,20 @@ private func file(_ name: String, _ kind: FileKind, videoAudio: Bool? = nil) -> 
         // Mezcla: COMPRESS y METADATA valen para ambos
         #expect(ToolKind.available(for: [file("a.wav", .audio), file("b.png", .image)]) == [.compress, .metadata])
     }
+
+    @Test func pdf() {
+        #expect(FileKind.classify(.pdf, isDirectory: false) == .pdf)
+        #expect(TargetFormat.available(for: [file("doc.pdf", .pdf)]).map(\.label) == ["TXT", "DOCX", "JPG", "PNG"])
+        // Con imágenes solo comparten JPG y PNG
+        #expect(TargetFormat.available(for: [file("doc.pdf", .pdf), file("a.heic", .image)]) == [.jpg, .png])
+        #expect(ToolKind.available(for: [file("doc.pdf", .pdf)]) == [.metadata])
+    }
+
+    @Test func nombresDePagina() {
+        #expect(PDFConverter.pageFileName(base: "informe", page: 3, of: 5, ext: "png") == "informe_p3.png")
+        #expect(PDFConverter.pageFileName(base: "informe", page: 3, of: 12, ext: "jpg") == "informe_p03.jpg")
+        #expect(PDFConverter.pageFileName(base: "informe", page: 100, of: 100, ext: "jpg") == "informe_p100.jpg")
+    }
 }
 
 @Suite struct GeometriaTests {

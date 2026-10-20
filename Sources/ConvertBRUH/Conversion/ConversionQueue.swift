@@ -1,6 +1,6 @@
 import Foundation
 
-/// Cola con un máximo de trabajos simultáneos; el resto espera en FIFO (§5.3).
+/// Cola con un máximo de trabajos simultáneos; el resto espera en FIFO (§5.5).
 actor ConversionQueue {
     static let shared = ConversionQueue(limit: 4)
 
@@ -101,6 +101,27 @@ enum JobRunner {
         func tmp(_ ext: String) -> URL { tmpDir.appendingPathComponent("salida.\(ext)") }
 
         switch operation {
+        case .convert(let target) where file.kind == .pdf:
+            let doc = try PDFConverter.open(src)
+            let base = OutputNaming.baseName(for: src)
+            switch target {
+            case .txt:
+                let out = tmp("txt")
+                try PDFConverter.writeText(doc, to: out)
+                return Produced(file: out, base: base, ext: "txt")
+            case .docx:
+                let out = tmp("docx")
+                try PDFConverter.writeDOCX(doc, to: out)
+                return Produced(file: out, base: base, ext: "docx")
+            case .jpg, .png:
+                // Varias páginas → carpeta `informe/` con `informe_p1.png`…
+                let out = tmpDir.appendingPathComponent("paginas")
+                let isFolder = try PDFConverter.writePages(doc, to: out, base: base, target: target, progress: progress)
+                return Produced(file: out, base: base, ext: isFolder ? "" : target.fileExtension)
+            default:
+                throw JobError("Formato no válido para PDF")
+            }
+
         case .convert(let target) where target.isAudio:
             let info = try await probeAudio(src)
             let out = tmp(target.fileExtension)
@@ -157,6 +178,12 @@ enum JobRunner {
             default:
                 throw JobError("Herramienta no válida para vídeos")
             }
+
+        case .tool(let tool) where file.kind == .pdf:
+            guard tool == .metadata else { throw JobError("Herramienta no válida para PDF") }
+            let out = tmp("pdf")
+            try PDFConverter.stripMetadata(input: src, output: out)
+            return Produced(file: out, base: OutputNaming.baseName(for: src, suffix: "_clean"), ext: "pdf")
 
         case .tool(let tool) where file.kind == .image:
             switch tool {
