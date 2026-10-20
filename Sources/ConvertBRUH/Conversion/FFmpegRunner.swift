@@ -29,7 +29,7 @@ enum Binaries {
     }()
 }
 
-/// Registro de procesos y temporales vivos, para limpiarlos al salir (§5.3).
+/// Registro de procesos y temporales vivos, para limpiarlos al salir (§5.5).
 /// Síncrono a propósito: `applicationWillTerminate` no puede esperar a un actor.
 final class ProcessRegistry: @unchecked Sendable {
     static let shared = ProcessRegistry()

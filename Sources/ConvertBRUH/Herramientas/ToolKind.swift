@@ -30,7 +30,7 @@ enum ToolKind: String, CaseIterable, Equatable {
         case .mute:
             return file.kind == .video && file.videoHasAudio == true
         case .metadata:
-            if file.kind == .audio { return true }
+            if file.kind == .audio || file.kind == .pdf { return true }
             if file.kind == .image { return ToolKind.metadataImageExtensions.contains(file.url.pathExtension.lowercased()) }
             return false // en vídeos no: copiar el audio sin tags cambiaría el contenedor
         }

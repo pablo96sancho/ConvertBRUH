@@ -6,6 +6,7 @@ enum FileKind: Equatable {
     case audio
     case video
     case image
+    case pdf
     case other
 
     /// Clasifica por `UTType`. El orden importa: un `.audio` también conforma a `.audiovisualContent`.
@@ -13,6 +14,7 @@ enum FileKind: Equatable {
         guard !isDirectory, let type else { return .other }
         if type.conforms(to: .audio) { return .audio }
         if type.conforms(to: .movie) || type.conforms(to: .audiovisualContent) { return .video }
+        if type.conforms(to: .pdf) { return .pdf }
         if type.conforms(to: .image) { return .image }
         return .other
     }

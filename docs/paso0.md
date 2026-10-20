@@ -16,6 +16,7 @@ Prototipos: `ConvertBRUH-Paso0/` (paquete SwiftPM de consola y `App/` como `.app
 | 9 | AirDrop / Float | ⏳ Pendiente (se valida al implementar el anillo de Acciones) |
 | 10 | Metadata de imagen | ✅ `CGImageDestinationCopyImageSource` con `kCGImageDestinationMetadata` (solo orientación), `MergeMetadata=false`, `ShouldExcludeXMP/GPS=true` → sin GPS ni EXIF, orientación conservada y **datos JPEG idénticos byte a byte** (sin recodificar). Se pierde el DPI |
 | 11 | PDF | ✅ `CGContext(consumer:mediaBox:)` con la imagen ya orientada; mediaBox = píxeles × 72 / DPI |
+| 12 | PDF como entrada (2026-10-20) | ✅ `PDFDocument.string` da el texto con acentos y emojis. `PDFPage.attributedString` conserva fuente, tamaño y negrita; `NSAttributedString.data(... .officeOpenXML)` escribe un DOCX válido y `\f` se convierte en `<w:br w:type="page"/>`. Se pierden la maquetación y las imágenes. `PDFPage.draw(with: .cropBox, to:)` aplica la rotación de la página por sí solo. `documentAttributes = [:]` + `write(to:)` borra autor, título, creador, productor y fechas, y conserva páginas y texto. PDF escaneado → sin texto (OCR fuera de v1) |
 
 ## Otros hallazgos
 

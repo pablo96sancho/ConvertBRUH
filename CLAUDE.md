@@ -41,6 +41,7 @@ Resultados en `docs/paso0.md`. **Si algo falla, parar y consultar antes de busca
 9. **Acciones:** `NSSharingService(named: .sendViaAirDrop)` funciona desde una app agente sin activar; un `NSPanel` flotante actúa como `NSDraggingSource` de file URLs hacia Finder y Ableton (Float).
 10. **Metadata de imagen:** `CGImageDestinationCopyImageSource` con las opciones de borrado elimina EXIF/GPS **sin recodificar** un JPEG.
 11. **PDF:** una imagen se escribe como PDF de una página con `CGContext(consumer:mediaBox:)` conservando la resolución.
+12. **PDF como entrada:** texto con `PDFDocument.string`, DOCX con `attributedString` + `.officeOpenXML`, render de páginas giradas, borrado de `documentAttributes`.
 
 ---
 
@@ -84,6 +85,7 @@ Con `UTType` del archivo (`resourceValues(forKeys: [.contentTypeKey])`):
 | Audio: WAV, AIFF, FLAC, M4A, MP3, OGG, OPUS… | `.audio` |
 | Vídeo: MP4, MOV, MKV… | `.movie` / `.audiovisualContent`. Se inspecciona con ffprobe al arrastrar: un MP4 **sin imagen** (solo audio) cuenta como audio |
 | Imagen: PNG, JPG, HEIC, WEBP, TIFF, GIF, BMP… | `.image` |
+| PDF | `.pdf` (se comprueba antes que `.image`) |
 | Otro (carpetas, documentos…) | — (solo anillo de Acciones) |
 
 **Regla general para Convertir y Herramientas:** solo aparecen las porciones válidas para *todos* los archivos convertibles. Los no válidos se ignoran en silencio. Si no queda ninguno, no hay anillo.
@@ -96,6 +98,7 @@ Con `UTType` del archivo (`resourceValues(forKeys: [.contentTypeKey])`):
 | Imagen | JPG · PNG · WEBP · PDF |
 | Vídeo con audio | MP4 · MOV · GIF · AUDIO · MP3 · WAV |
 | Vídeo sin audio | MP4 · MOV · GIF |
+| PDF | TXT · DOCX · JPG · PNG (§5.4) |
 
 - Se oculta la porción del formato de origen cuando todos los archivos comparten ese formato (MP4 o MOV incluidos).
 - Selección mixta: intersección en el orden del primer archivo (vídeo + audio → MP3 · WAV).
@@ -152,7 +155,13 @@ Elegir fotograma o recortar quedan fuera (necesitan editor; recortar ya lo hace 
 | **COMPRESS** | `arrow.down.right.and.arrow.up.left` | Lado mayor máx. 2560 px. Sin transparencia → JPG calidad 0.7. Con transparencia → PNG | `_compressed` |
 | **METADATA** | `tag` | Quita EXIF, GPS, IPTC y XMP. JPEG/HEIC/PNG/TIFF: sin recodificar (`CGImageDestinationCopyImageSource`). La orientación se conserva | Mismo formato, `_clean` |
 
-Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METADATA; imagen → COMPRESS · METADATA; vídeo → COMPRESS · MUTE.
+**PDF**
+
+| Porción | SF Symbol | Proceso | Salida |
+|---|---|---|---|
+| **METADATA** | `tag` | `documentAttributes = [:]` y `PDFDocument.write(to:)`: borra autor, título, creador, productor, fechas y palabras clave. No rasteriza | `.pdf`, `_clean` |
+
+Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METADATA; imagen → COMPRESS · METADATA; vídeo → COMPRESS · MUTE; PDF → METADATA.
 
 ---
 
@@ -207,7 +216,17 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 | **WEBP** | ImageIO no escribe WebP (Paso 0) → PNG temporal → `ffmpeg -i file:<tmp.png> -c:v libwebp -quality 85 -frames:v 1 file:<out>` → borrar PNG temporal |
 | **PDF** | Un PDF de una página por imagen. `CGContext(consumer:mediaBox:)` con mediaBox = tamaño en píxeles × 72 / DPI de la imagen (72 si no hay DPI). Imagen dibujada sin recomprimir el contenido más allá de lo que haga Quartz |
 
-### 5.3 Cola
+### 5.4 PDF (PDFKit)
+
+PDF protegido con contraseña → "El PDF está protegido con contraseña". Sin texto (escaneo) → "El PDF no tiene texto (¿es un escaneo?)" en TXT y DOCX; no hay OCR en v1.
+
+| Destino | Ajustes |
+|---|---|
+| **TXT** | `PDFDocument.string` en UTF-8 |
+| **DOCX** | `PDFPage.attributedString` de cada página separados por `\f` (salto de página de Word) → `NSAttributedString` `.officeOpenXML`. Conserva fuentes, tamaños y negritas; no conserva la maquetación ni las imágenes |
+| **JPG / PNG** | Cada página a 200 DPI sobre blanco (`cropBox`, rotación aplicada). JPG calidad 0.9. Una página → `informe.png`; varias → carpeta `informe/` con `informe_p1.png`… (relleno con ceros desde 10 páginas). Progreso por página |
+
+### 5.5 Cola
 - `actor ConversionQueue` con **máximo 4 trabajos simultáneos**, resto en FIFO. La usan Convertir y Herramientas.
 - Cada `Process` de ffmpeg queda registrado; en `applicationWillTerminate` se terminan y se borran sus temporales.
 - **Progreso de audio:** `out_time_us` de `-progress pipe:1` frente a la duración de ffprobe (NORMALIZE: 50 % por pasada).
@@ -277,6 +296,7 @@ ConvertBRUH/
 │   │   ├── MediaProbe.swift           // ffprobe → struct
 │   │   ├── AudioConverter.swift       // argumentos ffmpeg de conversión
 │   │   ├── ImageConverter.swift       // ImageIO + WebP + PDF
+│   │   ├── PDFConverter.swift         // PDF → TXT, DOCX, JPG/PNG por página; METADATA
 │   │   ├── FFmpegRunner.swift         // Process, progreso, cancelación
 │   │   └── ConversionQueue.swift      // actor, máx. 4
 │   ├── Herramientas/
@@ -345,6 +365,7 @@ ConvertBRUH/
 17. Control sobre un WAV → NORMALIZE produce `nombre_normalized.wav` a −14 LUFS (±0,5).
 18. METADATA sobre un JPG con GPS → `nombre_clean.jpg` sin GPS y con los mismos píxeles.
 19. Cambiar de Shift a Control durante el arrastre cambia el anillo sin cerrarlo.
+20. Shift sobre un PDF → TXT · DOCX · JPG · PNG. Un PDF de 3 páginas a PNG → carpeta `nombre/` con `nombre_p1.png`…`nombre_p3.png`.
 
 ---
 

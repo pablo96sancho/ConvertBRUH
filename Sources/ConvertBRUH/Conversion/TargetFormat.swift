@@ -5,11 +5,14 @@ enum TargetFormat: String, CaseIterable, Equatable {
     case mp3, wav, m4a, flac, aiff
     case jpg, png, webp, pdf
     case mp4, mov, gif
+    case txt, docx
     /// Extrae la pista de audio tal cual, sin recodificar (la extensión depende del códec).
     case extractAudio = "audio"
 
     static let audio: [TargetFormat] = [.mp3, .wav, .m4a, .flac, .aiff]
     static let image: [TargetFormat] = [.jpg, .png, .webp, .pdf]
+    /// PDF: texto o páginas como imágenes.
+    static let document: [TargetFormat] = [.txt, .docx, .jpg, .png]
     /// Vídeo con pista de audio (orden horario desde arriba).
     static let video: [TargetFormat] = [.mp4, .mov, .gif, .extractAudio, .mp3, .wav]
     /// Vídeo sin pista de audio.
@@ -37,6 +40,8 @@ enum TargetFormat: String, CaseIterable, Equatable {
         case "pdf": self = .pdf
         case "mp4": self = .mp4
         case "mov": self = .mov
+        case "txt": self = .txt
+        case "docx": self = .docx
         default: return nil
         }
     }
@@ -47,6 +52,7 @@ enum TargetFormat: String, CaseIterable, Equatable {
         case .audio: return audio
         case .image: return image
         case .video: return file.videoHasAudio == false ? silentVideo : video
+        case .pdf: return document
         case .other: return []
         }
     }
