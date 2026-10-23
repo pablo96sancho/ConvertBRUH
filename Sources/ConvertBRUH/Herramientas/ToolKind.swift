@@ -3,7 +3,7 @@ import Foundation
 /// Herramientas automáticas del anillo Shift+Option (§3.7).
 enum ToolKind: String, CaseIterable, Equatable {
     // Orden horario desde arriba
-    case normalize, compress, channels, mute, metadata
+    case normalize, compress, upscale, channels, mute, metadata
 
     var label: String { rawValue.uppercased() }
 
@@ -11,6 +11,7 @@ enum ToolKind: String, CaseIterable, Equatable {
         switch self {
         case .normalize: "waveform"
         case .compress: "arrow.down.right.and.arrow.up.left"
+        case .upscale: "arrow.up.left.and.arrow.down.right"
         case .channels: "hifispeaker.2"
         case .mute: "speaker.slash"
         case .metadata: "tag"
@@ -27,6 +28,9 @@ enum ToolKind: String, CaseIterable, Equatable {
         case .compress:
             // Audio → MP3 ligero; imagen → JPG/PNG reducido; vídeo → MP4 1080p
             return file.kind == .audio || file.kind == .image || file.kind == .video
+        case .upscale:
+            // Un SVG ya se rasteriza al tamaño que haga falta
+            return file.kind == .image && !["svg", "svgz"].contains(file.url.pathExtension.lowercased())
         case .mute:
             return file.kind == .video && file.videoHasAudio == true
         case .metadata:

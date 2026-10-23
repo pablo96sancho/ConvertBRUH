@@ -72,8 +72,9 @@ private func file(_ name: String, _ kind: FileKind, videoAudio: Bool? = nil) -> 
 
     @Test func herramientas() {
         #expect(ToolKind.available(for: [file("a.wav", .audio)]) == [.normalize, .compress, .channels, .metadata])
-        #expect(ToolKind.available(for: [file("a.jpg", .image)]) == [.compress, .metadata])
-        #expect(ToolKind.available(for: [file("a.gif", .image)]) == [.compress])
+        #expect(ToolKind.available(for: [file("a.jpg", .image)]) == [.compress, .upscale, .metadata])
+        #expect(ToolKind.available(for: [file("a.gif", .image)]) == [.compress, .upscale])
+        #expect(ToolKind.available(for: [file("logo.svg", .image)]) == [.compress])
         #expect(ToolKind.available(for: [file("v.mov", .video, videoAudio: true)]) == [.compress, .mute])
         #expect(ToolKind.available(for: [file("v.mov", .video, videoAudio: false)]) == [.compress])
         // Mezcla: COMPRESS y METADATA valen para ambos
