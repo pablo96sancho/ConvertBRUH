@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -19,6 +20,9 @@ enum ImageConverter {
     }
 
     static func load(_ url: URL, maxPixelSize: Int? = nil) throws -> Loaded {
+        if (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.conforms(to: .svg) == true {
+            return try loadSVG(url, maxPixelSize: maxPixelSize)
+        }
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), CGImageSourceGetCount(src) > 0 else {
             throw ImageError(message: "No se puede leer la imagen")
         }
@@ -39,6 +43,34 @@ enum ImageConverter {
             throw ImageError(message: "No se puede decodificar la imagen")
         }
         return Loaded(image: image, properties: props, sourceType: CGImageSourceGetType(src))
+    }
+
+    /// ImageIO no decodifica SVG: se rasteriza con NSImage. Lado mayor de al menos 2048 px
+    /// (o el doble del tamaño intrínseco), limitado por `maxPixelSize`. El DPI se ajusta
+    /// para que el PDF resultante conserve el tamaño intrínseco en puntos.
+    static func loadSVG(_ url: URL, maxPixelSize: Int?) throws -> Loaded {
+        guard let svg = NSImage(contentsOf: url), svg.size.width > 0, svg.size.height > 0 else {
+            throw ImageError(message: "No se puede leer el SVG")
+        }
+        let side = max(svg.size.width, svg.size.height)
+        var target = max(side * 2, 2048)
+        if let maxPixelSize { target = min(target, CGFloat(maxPixelSize)) }
+        let scale = target / side
+        let width = max(Int((svg.size.width * scale).rounded()), 1)
+        let height = max(Int((svg.size.height * scale).rounded()), 1)
+        guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw ImageError(message: "No se pudo preparar la imagen")
+        }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+        svg.draw(in: NSRect(x: 0, y: 0, width: width, height: height))
+        NSGraphicsContext.restoreGraphicsState()
+        guard let image = ctx.makeImage() else { throw ImageError(message: "No se puede decodificar el SVG") }
+        let dpi = 72 * Double(width) / svg.size.width
+        return Loaded(image: image, properties: [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi],
+                      sourceType: UTType.svg.identifier as CFString)
     }
 
     static func hasAlpha(_ image: CGImage) -> Bool {
