@@ -20,6 +20,10 @@ cp "$ROOT/Resources/LICENSES/"* "$APP/Contents/Resources/LICENSES/"
 cp "$ROOT/Resources/MenuBar/"*.png "$APP/Contents/Resources/"
 chmod +x "$APP/Contents/Resources/bin/"*
 
+# Modelo de UPSCALE (Real-ESRGAN): .mlpackage → .mlmodelc
+mkdir -p "$APP/Contents/Resources/Models"
+xcrun coremlcompiler compile "$ROOT/Resources/Models/RealESRGAN.mlpackage" "$APP/Contents/Resources/Models" >/dev/null
+
 # Icono de la app: el .icon de Icon Composer con actool; si actool no está operativo,
 # .icns desde el PNG exportado (ICON APP/ConvertBRUH ICON Exports/)
 ICON_TMP=$(mktemp -d)

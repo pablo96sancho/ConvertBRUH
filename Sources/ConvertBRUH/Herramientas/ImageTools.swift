@@ -22,6 +22,24 @@ enum ImageTools {
         return "jpg"
     }
 
+    /// UPSCALE ×4 con Real-ESRGAN. Con transparencia → PNG; JPEG → JPG; resto → PNG.
+    /// Devuelve la extensión con la que hay que guardar el resultado.
+    static func upscale(input: URL, output: URL, progress: @Sendable (Double) -> Void) async throws -> String {
+        let loaded = try ImageConverter.load(input)
+        guard max(loaded.image.width, loaded.image.height) <= Upscaler.maxInputPixelSize else {
+            throw ImageConverter.ImageError(message: "La imagen ya es grande: UPSCALE admite hasta \(Upscaler.maxInputPixelSize) px")
+        }
+        let big = try await Upscaler.shared.upscale(loaded.image, progress: progress)
+        let upscaled = ImageConverter.Loaded(image: big, properties: loaded.properties, sourceType: loaded.sourceType)
+        if !ImageConverter.hasAlpha(big), loaded.sourceType == UTType.jpeg.identifier as CFString {
+            try ImageConverter.writeJPEG(upscaled, to: output, quality: 0.9, keepMetadata: true)
+            return "jpg"
+        }
+        try ImageConverter.write(big, to: output, type: .png,
+                                 properties: ImageConverter.outputProperties(from: loaded.properties, keepEXIFAndGPS: false))
+        return "png"
+    }
+
     /// METADATA: quita EXIF, GPS, IPTC y XMP sin recodificar; conserva la orientación (Paso 0, punto 10).
     static func stripMetadata(input: URL, output: URL) throws {
         guard let src = CGImageSourceCreateWithURL(input as CFURL, nil), let type = CGImageSourceGetType(src),

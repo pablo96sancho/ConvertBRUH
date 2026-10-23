@@ -191,6 +191,10 @@ enum JobRunner {
                 let out = tmp("img")
                 let ext = try ImageTools.compress(input: src, output: out)
                 return Produced(file: out, base: OutputNaming.baseName(for: src, suffix: "_compressed"), ext: ext)
+            case .upscale:
+                let out = tmp("img")
+                let ext = try await ImageTools.upscale(input: src, output: out, progress: progress)
+                return Produced(file: out, base: OutputNaming.baseName(for: src, suffix: "_upscaled"), ext: ext)
             case .metadata:
                 let ext = src.pathExtension
                 let out = tmp(ext)
@@ -249,6 +253,9 @@ enum JobRunner {
 
             case .mute:
                 throw JobError("MUTE solo vale para vídeos")
+
+            case .upscale:
+                throw JobError("UPSCALE solo vale para imágenes")
             }
 
         case .action:

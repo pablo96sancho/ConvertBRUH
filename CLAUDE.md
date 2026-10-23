@@ -153,6 +153,7 @@ Elegir fotograma o recortar quedan fuera (necesitan editor; recortar ya lo hace 
 | Porción | SF Symbol | Proceso | Salida |
 |---|---|---|---|
 | **COMPRESS** | `arrow.down.right.and.arrow.up.left` | Lado mayor máx. 2560 px. Sin transparencia → JPG calidad 0.7. Con transparencia → PNG | `_compressed` |
+| **UPSCALE** | `arrow.up.left.and.arrow.down.right` | ×4 con Real-ESRGAN (`realesr-general-x4v3`, Core ML, Neural Engine) por bloques de 256 px con 16 px de margen. Entrada máx. 2048 px de lado mayor (si no, error). El alfa se amplía aparte con interpolación de alta calidad; se conserva el perfil de color. Un upscale a la vez. No se ofrece para SVG | Con transparencia → PNG; JPEG → JPG 0.9; resto → PNG. `_upscaled` |
 | **METADATA** | `tag` | Quita EXIF, GPS, IPTC y XMP. JPEG/HEIC/PNG/TIFF: sin recodificar (`CGImageDestinationCopyImageSource`). La orientación se conserva | Mismo formato, `_clean` |
 
 **PDF**
@@ -161,7 +162,7 @@ Elegir fotograma o recortar quedan fuera (necesitan editor; recortar ya lo hace 
 |---|---|---|---|
 | **METADATA** | `tag` | `documentAttributes = [:]` y `PDFDocument.write(to:)`: borra autor, título, creador, productor, fechas y palabras clave. No rasteriza | `.pdf`, `_clean` |
 
-Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METADATA; imagen → COMPRESS · METADATA; vídeo → COMPRESS · MUTE; PDF → METADATA.
+Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METADATA; imagen → COMPRESS · UPSCALE · METADATA; vídeo → COMPRESS · MUTE; PDF → METADATA.
 
 ---
 
@@ -303,7 +304,8 @@ ConvertBRUH/
 │   │   └── ConversionQueue.swift      // actor, máx. 4
 │   ├── Herramientas/
 │   │   ├── AudioTools.swift           // Normalize, Compress, Channels, Metadata (argumentos puros)
-│   │   └── ImageTools.swift           // Compress, Metadata
+│   │   ├── ImageTools.swift           // Compress, Upscale, Metadata
+│   │   └── Upscaler.swift             // actor: Real-ESRGAN en Core ML por bloques
 │   ├── Acciones/
 │   │   ├── FileActions.swift          // AirDrop, Copy, Copy Path, Move
 │   │   └── FloatPanel.swift           // ventana flotante arrastrable
@@ -316,6 +318,7 @@ ConvertBRUH/
 ├── Resources/
 │   ├── Info.plist
 │   ├── LICENSES/                      // aviso GPL de ffmpeg + enlace a fuentes
+│   ├── Models/RealESRGAN.mlpackage    // modelo de UPSCALE (2,4 MB); build-app.sh lo compila a .mlmodelc
 │   └── bin/ffmpeg, bin/ffprobe        // no se versionan; los descarga scripts/fetch-ffmpeg.sh
 ├── ICON APP/                          // icono .icon (Icon Composer), exportación 1024 y PNG de la barra
 ├── cover.jpg                          // portada del README (COVER_OUTPUT=cover.jpg swift test --filter CoverRender)
@@ -326,7 +329,8 @@ ConvertBRUH/
     ├── fetch-ffmpeg.sh                // descarga build estático arm64 (ver docs/paso0.md)
     ├── build-app.sh                   // swift build -c release → .app → bin → icono → codesign ad-hoc (bin primero)
     ├── make-icns.swift                // fallback del icono si actool no puede compilar el .icon
-    └── make-menubar-icon.swift        // PNG de ICON APP/ → icono plantilla de la barra
+    ├── make-menubar-icon.swift        // PNG de ICON APP/ → icono plantilla de la barra
+    └── convert-upscale-model.py       // pesos .pth de Real-ESRGAN → RealESRGAN.mlpackage
 ```
 
 `AudioConverter`, `AudioTools` y `OutputWriter` deben ser **funciones puras testeables**; argumentos y nombres se cubren con `swift test` sin ejecutar ffmpeg.
