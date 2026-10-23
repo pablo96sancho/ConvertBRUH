@@ -209,6 +209,8 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 
 **Lectura:** `CGImageSourceCreateWithURL`. Primer frame; orientación EXIF aplicada (`kCGImageSourceCreateThumbnailWithTransform` sin reducir); se mantienen resolución y perfil de color.
 
+**SVG:** ImageIO no lo decodifica (fuente con 0 imágenes) → se rasteriza con `NSImage` en sRGB con transparencia; lado mayor = máx(2048, 2× intrínseco), limitado por COMPRESS a 2560. DPI = 72 × escala, así el PDF conserva el tamaño intrínseco en puntos. METADATA no se ofrece para SVG.
+
 | Destino | Ajustes |
 |---|---|
 | **JPG** | `kCGImageDestinationLossyCompressionQuality = 0.9`. Transparencia aplanada sobre **blanco**. Se conservan EXIF y GPS |
