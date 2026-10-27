@@ -23,7 +23,7 @@ enum VideoConverter {
     }
 
     /// Recodificación a H.264 apta para todo (dimensiones pares, yuv420p).
-    static let h264Encode = ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+    static let h264Encode = ["-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p",
                              "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2"]
 
     /// MP4 / MOV.
@@ -56,7 +56,7 @@ enum VideoConverter {
     /// GIF animado: 15 fps, ancho máx. 640 px, paleta optimizada.
     static func gifArguments(input: URL, output: URL) -> [String] {
         AudioConverter.baseArguments(input: input) + [
-            "-vf", "fps=15,scale='min(640,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5",
+            "-vf", "fps=15,scale='min(640,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle",
             "-loop", "0", "-y", "file:" + output.path,
         ]
     }

@@ -104,8 +104,8 @@ Con `UTType` del archivo (`resourceValues(forKeys: [.contentTypeKey])`):
 - Selección mixta: intersección en el orden del primer archivo (vídeo + audio → MP3 · WAV).
 
 **Vídeo (`VideoConverter`, puro y testeado)**
-- **MP4 / MOV:** `-map 0:v:0 -map 0:a:0?`. El vídeo se **copia** si el códec cabe (MP4: h264/hevc; MOV: h264/hevc/prores; HEVC con `-tag:v hvc1`); si no, `libx264 -preset medium -crf 20 -pix_fmt yuv420p -vf scale=trunc(iw/2)*2:trunc(ih/2)*2` (H.264 no admite dimensiones impares). El audio se copia si cabe (MP4: aac/mp3/alac; MOV: además PCM); si no, AAC 192k. Siempre `-movflags +faststart`.
-- **GIF:** `fps=15`, ancho máx. 640, `palettegen`/`paletteuse`, `-loop 0`.
+- **MP4 / MOV:** `-map 0:v:0 -map 0:a:0?`. El vídeo se **copia** si el códec cabe (MP4: h264/hevc; MOV: h264/hevc/prores; HEVC con `-tag:v hvc1`); si no, `libx264 -preset slow -crf 18 -pix_fmt yuv420p -vf scale=trunc(iw/2)*2:trunc(ih/2)*2` (H.264 no admite dimensiones impares). El audio se copia si cabe (MP4: aac/mp3/alac; MOV: además PCM); si no, AAC 192k. Siempre `-movflags +faststart`.
+- **GIF:** `fps=15`, ancho máx. 640, `palettegen`/`paletteuse` (`dither=sierra2_4a:diff_mode=rectangle`), `-loop 0`.
 - **AUDIO:** primera pista sin recodificar; extensión por códec (aac/alac → m4a, mp3, flac, opus, vorbis → ogg, ac3, eac3, PCM little-endian → wav). Otros códecs → WAV recodificado.
 - **MP3 / WAV:** como §5.1 con `-vn`.
 
@@ -129,7 +129,7 @@ Procesados automáticos, sin ventanas. Generan un archivo nuevo junto al origina
 
 | Porción | SF Symbol | Proceso | Salida |
 |---|---|---|---|
-| **NORMALIZE** | `waveform` | `loudnorm` en dos pasadas: −14 LUFS integrados, pico real −1 dBTP. Primera pasada con `print_format=json` para medir; segunda con `measured_*`, `offset` y `linear=true`. **Siempre `-ar <sample rate original>`** (loudnorm sube a 192 kHz internamente) | Mismo formato que el original si es MP3/WAV/M4A/FLAC/AIFF; si no (vídeo, OGG, OPUS…) → WAV. `_normalized` |
+| **NORMALIZE** | `waveform` | `loudnorm` en dos pasadas: −14 LUFS integrados, pico real −1 dBTP. Primera pasada con `print_format=json` para medir; segunda con `measured_*`, `offset` y `linear=true`. **Siempre `-ar <sample rate original>`** (loudnorm sube a 192 kHz internamente). Hacia FLAC, `asetnsamples=n=4096` al final del filtro: en audios de menos de ~3 s loudnorm entrega un bloque mayor del que admite FLAC | Mismo formato que el original si es MP3/WAV/M4A/FLAC/AIFF; si no (vídeo, OGG, OPUS…) → WAV. `_normalized` |
 | **COMPRESS** | `arrow.down.right.and.arrow.up.left` | MP3 VBR `-q:a 5` (~130 kbps). Sample rate según §5.1 | `.mp3`, `_compressed` |
 | **CHANNELS** | `hifispeaker.2` | Estéreo/multicanal → mono (`-ac 1`); mono → estéreo duplicado (`-ac 2`) | Mismo formato, `_mono` / `_stereo` |
 | **METADATA** | `tag` | Borra tags y carátula sin recodificar: `-map 0:a:0 -c copy -map_metadata -1 -map_chapters -1`. Solo archivos de audio, no vídeos | Misma extensión, `_clean` |
@@ -152,7 +152,7 @@ Elegir fotograma o recortar quedan fuera (necesitan editor; recortar ya lo hace 
 
 | Porción | SF Symbol | Proceso | Salida |
 |---|---|---|---|
-| **COMPRESS** | `arrow.down.right.and.arrow.up.left` | Lado mayor máx. 2560 px. Sin transparencia → JPG calidad 0.7. Con transparencia → PNG | `_compressed` |
+| **COMPRESS** | `arrow.down.right.and.arrow.up.left` | Lado mayor máx. 2560 px. Sin transparencia → JPG calidad 0.8. Con transparencia → PNG | `_compressed` |
 | **UPSCALE** | `arrow.up.left.and.arrow.down.right` | ×4 con Real-ESRGAN (`realesr-general-x4v3`, Core ML, Neural Engine) por bloques de 256 px con 16 px de margen. Entrada máx. 2048 px de lado mayor (si no, error). El alfa se amplía aparte con interpolación de alta calidad; se conserva el perfil de color. Un upscale a la vez. No se ofrece para SVG | Con transparencia → PNG; JPEG → JPG 0.9; resto → PNG. `_upscaled` |
 | **METADATA** | `tag` | Quita EXIF, GPS, IPTC y XMP. JPEG/HEIC/PNG/TIFF: sin recodificar (`CGImageDestinationCopyImageSource`). La orientación se conserva | Mismo formato, `_clean` |
 
@@ -192,11 +192,12 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 - `-map_metadata 0` para conservar tags (salvo METADATA).
 - **Carátula:** solo si el origen tiene `attached_pic` y el destino es MP3, M4A o FLAC: `-map 0:v:<idx> -c:v copy -disposition:v:0 attached_pic`. En WAV/AIFF, o si el origen es un vídeo, `-vn`.
 - **Canales:** se mantienen. Más de 2 canales hacia MP3 → `-ac 2`.
-- **Sample rate:** se mantiene, salvo en MP3 y M4A: si es mayor de 48 kHz, 88.2/176.4 → 44100 y 96/192 → 48000 (`-ar`).
+- **Sample rate:** se mantiene, salvo en MP3 y M4A: si es mayor de 48 kHz, 88.2/176.4 → 44100 y 96/192 → 48000 (`-ar`). Al cambiar de sample rate (también tras loudnorm) se añade `aresample=<rate>:filter_size=64:phase_shift=14:linear_interp=1`: el ffmpeg incluido no trae soxr.
 
 **Bit depth para salidas sin pérdida**
 - Origen sin pérdida (WAV, AIFF, FLAC, ALAC) → se conserva: 16 → 16, 24 → 24, 32 float → 32 float. FLAC no admite float: 32f → 24.
 - Origen con pérdida (MP3, AAC, OGG, OPUS) → 16 bits.
+- Salida de 16 bits → `aresample=osf=s16:dither_method=triangular_hp` (dither TPDF). Si el audio ya es s16 y no se procesa, no hay conversión y no se aplica.
 
 | Destino | Códec / ajustes |
 |---|---|
@@ -216,7 +217,7 @@ Orden horario desde arriba: audio → NORMALIZE · COMPRESS · CHANNELS · METAD
 |---|---|
 | **JPG** | `kCGImageDestinationLossyCompressionQuality = 0.9`. Transparencia aplanada sobre **blanco**. Se conservan EXIF y GPS |
 | **PNG** | Sin pérdida |
-| **WEBP** | ImageIO no escribe WebP (Paso 0) → PNG temporal → `ffmpeg -i file:<tmp.png> -c:v libwebp -quality 85 -frames:v 1 file:<out>` → borrar PNG temporal |
+| **WEBP** | ImageIO no escribe WebP (Paso 0) → PNG temporal **convertido a sRGB** (ffmpeg ignora el perfil ICC) → `ffmpeg -i file:<tmp.png> -c:v libwebp -quality 90 -compression_level 6 -frames:v 1 file:<out>` → borrar PNG temporal. PNG/GIF/TIFF/BMP/SVG con transparencia → `-lossless 1` en vez de `-quality 90` |
 | **PDF** | Un PDF de una página por imagen. `CGContext(consumer:mediaBox:)` con mediaBox = tamaño en píxeles × 72 / DPI de la imagen (72 si no hay DPI). Imagen dibujada sin recomprimir el contenido más allá de lo que haga Quartz |
 
 ### 5.4 PDF (PDFKit)

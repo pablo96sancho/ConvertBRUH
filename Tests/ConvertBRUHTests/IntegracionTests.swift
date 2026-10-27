@@ -160,6 +160,14 @@ struct IntegracionTests {
         #expect(comp.lastPathComponent == "bajo_compressed.mp3")
     }
 
+    @Test func normalizeFLACCorto() async throws {
+        let src = dir.appendingPathComponent("corto.flac")
+        try await ffmpeg(["-f", "lavfi", "-i", "sine=f=440:d=2:sample_rate=96000,volume=0.1", "-c:a", "flac", "file:" + src.path])
+        let norm = try await run(src, .tool(.normalize))
+        #expect(norm.lastPathComponent == "corto_normalized.flac")
+        #expect(try await MediaProbe.probe(norm).audio?.sampleRate == 96000)
+    }
+
     @Test func errores() async throws {
         let borrado = dir.appendingPathComponent("no-existe.wav")
         await #expect(throws: JobError.self) { try await run(borrado, .convert(.mp3)) }
@@ -221,6 +229,30 @@ struct IntegracionTests {
 
         let pdf = try await run(src, .convert(.pdf))
         #expect(try Data(contentsOf: pdf).prefix(5) == Data("%PDF-".utf8))
+    }
+
+    @Test func webpConservaElColorDeDisplayP3() async throws {
+        let src = dir.appendingPathComponent("p3.png")
+        let ctx = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.displayP3)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        ctx.setFillColor(red: 0.8, green: 0.4, blue: 0.2, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
+        let d = CGImageDestinationCreateWithURL(src as CFURL, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(d, ctx.makeImage()!, nil)
+        #expect(CGImageDestinationFinalize(d))
+
+        let expected = pixel(src, x: 32, y: 32)
+        let got = pixel(try await run(src, .convert(.webp)), x: 32, y: 32)
+        for (e, g) in [(expected.r, got.r), (expected.g, got.g), (expected.b, got.b)] {
+            #expect(abs(Int(e) - Int(g)) <= 4, "esperado \(expected), obtenido \(got)")
+        }
+    }
+
+    @Test func webpSinPerdidaParaPNGConTransparencia() async throws {
+        let src = try makeImage("logo.png", type: "public.png", alpha: true)
+        let webp = try await run(src, .convert(.webp))
+        let p = pixel(webp, x: 100, y: 100)
+        #expect(p.r == 255 && p.g == 0 && p.b == 0)
     }
 
     @Test func herramientasImagen() async throws {

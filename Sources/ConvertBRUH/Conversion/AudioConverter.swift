@@ -78,7 +78,21 @@ enum AudioConverter {
         }
         args += ["-map_metadata", "0"]
 
-        if let filter = options.audioFilter { args += ["-af", filter] }
+        // Sample rate
+        let sourceRate = info.audio?.sampleRate ?? 0
+        var resampleRate: Int?
+        if sourceRate > 0 {
+            let rate = outputSampleRate(source: sourceRate, target: target)
+            if rate != sourceRate || options.forceSampleRate { resampleRate = rate }
+        }
+        let depth = bitDepth(for: info.audio, target: target)
+
+        var filters = [options.audioFilter, resampleFilter(rate: resampleRate, ditherTo16: [.wav, .aiff, .flac].contains(target) && depth == .s16)]
+            .compactMap { $0 }
+        // loudnorm entrega de golpe todo lo que tiene en búfer (~3 s); en audios cortos ese bloque
+        // supera el máximo de FLAC y el codificador no arranca
+        if target == .flac && options.audioFilter != nil { filters.append("asetnsamples=n=4096") }
+        if !filters.isEmpty { args += ["-af", filters.joined(separator: ",")] }
 
         // Canales
         let sourceChannels = info.audio?.channels ?? 0
@@ -88,15 +102,9 @@ enum AudioConverter {
             args += ["-ac", "2"]
         }
 
-        // Sample rate
-        let sourceRate = info.audio?.sampleRate ?? 0
-        if sourceRate > 0 {
-            let rate = outputSampleRate(source: sourceRate, target: target)
-            if rate != sourceRate || options.forceSampleRate { args += ["-ar", String(rate)] }
-        }
+        if let resampleRate { args += ["-ar", String(resampleRate)] }
 
         // Códec
-        let depth = bitDepth(for: info.audio, target: target)
         switch target {
         case .mp3:
             args += ["-c:a", "libmp3lame"]
@@ -117,6 +125,15 @@ enum AudioConverter {
 
         args += ["-y", "file:" + output.path]
         return args
+    }
+
+    /// `aresample` explícito: filtro más largo al cambiar de sample rate (el ffmpeg incluido no trae soxr)
+    /// y dither TPDF al bajar a 16 bits. Si ya es s16, swresample no convierte y el dither no se aplica.
+    static func resampleFilter(rate: Int?, ditherTo16: Bool) -> String? {
+        var params: [String] = []
+        if let rate { params += [String(rate), "filter_size=64", "phase_shift=14", "linear_interp=1"] }
+        if ditherTo16 { params += ["osf=s16", "dither_method=triangular_hp"] }
+        return params.isEmpty ? nil : "aresample=" + params.joined(separator: ":")
     }
 
     private static func key(_ d: BitDepth) -> String {

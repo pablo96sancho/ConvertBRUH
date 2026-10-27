@@ -116,6 +116,32 @@ enum ImageConverter {
         return flat
     }
 
+    /// Convierte a sRGB de 8 bits conservando la transparencia. ffmpeg ignora el perfil ICC,
+    /// así que una foto en Display P3 saldría desaturada en WebP si no se convierte antes.
+    static func convertToSRGB(_ image: CGImage) throws -> CGImage {
+        let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: srgb, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw ImageError(message: "No se pudo preparar la imagen")
+        }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let converted = ctx.makeImage() else { throw ImageError(message: "No se pudo preparar la imagen") }
+        return converted
+    }
+
+    /// Argumentos de libwebp: sin pérdida para gráficos con transparencia de un formato sin pérdida
+    /// (logos, capturas); con pérdida a calidad 90 para el resto.
+    static func webpArguments(input: URL, output: URL, lossless: Bool) -> [String] {
+        ["-hide_banner", "-nostdin", "-loglevel", "error", "-i", "file:" + input.path, "-c:v", "libwebp"]
+            + (lossless ? ["-lossless", "1"] : ["-quality", "90"])
+            + ["-compression_level", "6", "-frames:v", "1", "-y", "file:" + output.path]
+    }
+
+    static func isLosslessSource(_ type: CFString?) -> Bool {
+        guard let type, let ut = UTType(type as String) else { return false }
+        return [UTType.png, .gif, .tiff, .bmp, .svg].contains { ut.conforms(to: $0) }
+    }
+
     static func write(_ image: CGImage, to url: URL, type: UTType, properties: [CFString: Any]) throws {
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
             throw ImageError(message: "No se puede escribir \(type.preferredFilenameExtension?.uppercased() ?? "la imagen")")
@@ -158,11 +184,11 @@ enum ImageConverter {
             // ImageIO no escribe WebP (Paso 0): PNG temporal → ffmpeg libwebp
             let png = output.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".png")
             defer { try? FileManager.default.removeItem(at: png) }
-            try write(loaded.image, to: png, type: .png, properties: outputProperties(from: loaded.properties, keepEXIFAndGPS: false))
-            let result = try await FFmpegRunner.run(executable: Binaries.ffmpeg, arguments: [
-                "-hide_banner", "-nostdin", "-loglevel", "error", "-i", "file:" + png.path,
-                "-c:v", "libwebp", "-quality", "85", "-frames:v", "1", "-y", "file:" + output.path,
-            ])
+            try write(convertToSRGB(loaded.image), to: png, type: .png,
+                      properties: outputProperties(from: loaded.properties, keepEXIFAndGPS: false))
+            let lossless = hasAlpha(loaded.image) && isLosslessSource(loaded.sourceType)
+            let result = try await FFmpegRunner.run(executable: Binaries.ffmpeg,
+                                                    arguments: webpArguments(input: png, output: output, lossless: lossless))
             guard result.status == 0 else { throw ImageError(message: FFmpegRunner.summarize(result.stderr)) }
         default:
             throw ImageError(message: "Formato no soportado")

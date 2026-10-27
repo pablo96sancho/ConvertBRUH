@@ -39,6 +39,8 @@ private func value(_ args: [String], _ flag: String) -> String? {
         let a = VideoConverter.arguments(input: input, output: output, target: .mp4, info: info(video: "prores", audio: nil), aacAT: false)
         #expect(value(a, "-c:v") == "libx264")
         #expect(value(a, "-pix_fmt") == "yuv420p")
+        #expect(value(a, "-preset") == "slow")
+        #expect(value(a, "-crf") == "18")
         #expect(value(a, "-vf") == "scale=trunc(iw/2)*2:trunc(ih/2)*2")
         #expect(!a.contains("-c:a"))
         // ProRes cabe en MOV tal cual
@@ -54,6 +56,7 @@ private func value(_ args: [String], _ flag: String) -> String? {
     @Test func gifConPaleta() {
         let a = VideoConverter.gifArguments(input: input, output: output)
         #expect(value(a, "-vf")?.contains("palettegen") == true)
+        #expect(value(a, "-vf")?.contains("dither=sierra2_4a") == true)
         #expect(value(a, "-loop") == "0")
     }
 

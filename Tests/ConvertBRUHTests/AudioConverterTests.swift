@@ -144,8 +144,54 @@ private func value(_ args: [String], _ flag: String) -> String? {
         o.forceSampleRate = true
         let a = AudioConverter.arguments(input: input, output: output, target: .wav, info: info(codec: "pcm_s24le", rate: 44100, bps: 24),
                                          isVideoSource: false, aacAT: true, options: o)
-        #expect(value(a, "-af") == "loudnorm=x")
+        #expect(value(a, "-af") == "loudnorm=x,aresample=44100:filter_size=64:phase_shift=14:linear_interp=1")
         #expect(value(a, "-ar") == "44100")
+    }
+
+    @Test func resampleDeCalidadAlBajarSampleRate() {
+        let a = AudioConverter.arguments(input: input, output: output, target: .mp3, info: info(codec: "flac", rate: 96000, fmt: "s32", raw: 24),
+                                         isVideoSource: false, aacAT: true)
+        #expect(value(a, "-af") == "aresample=48000:filter_size=64:phase_shift=14:linear_interp=1")
+        #expect(value(a, "-ar") == "48000")
+    }
+
+    @Test func sinFiltroSiNoCambiaNada() {
+        let a = AudioConverter.arguments(input: input, output: output, target: .wav, info: info(codec: "flac", raw: 24),
+                                         isVideoSource: false, aacAT: true)
+        #expect(!a.contains("-af"))
+        #expect(!a.contains("-ar"))
+    }
+
+    @Test func ditherAl16DesdeConPerdida() {
+        let a = AudioConverter.arguments(input: input, output: output, target: .flac, info: info(codec: "mp3", fmt: "fltp"),
+                                         isVideoSource: false, aacAT: true)
+        #expect(value(a, "-af") == "aresample=osf=s16:dither_method=triangular_hp")
+        #expect(value(a, "-sample_fmt") == "s16")
+        // MP3/M4A reciben float: sin dither
+        let mp3 = AudioConverter.arguments(input: input, output: output, target: .mp3, info: info(codec: "aac", fmt: "fltp"),
+                                           isVideoSource: false, aacAT: true)
+        #expect(!mp3.contains("-af"))
+    }
+
+    @Test func normalizeAFLACTrocea() {
+        var o = AudioConverter.Options()
+        o.audioFilter = "loudnorm=x"
+        let a = AudioConverter.arguments(input: input, output: output, target: .flac, info: info(codec: "flac", raw: 24),
+                                         isVideoSource: false, aacAT: true, options: o)
+        #expect(value(a, "-af") == "loudnorm=x,asetnsamples=n=4096")
+        // Sin filtro no hace falta
+        let plain = AudioConverter.arguments(input: input, output: output, target: .flac, info: info(codec: "flac", raw: 24),
+                                             isVideoSource: false, aacAT: true)
+        #expect(!plain.contains("-af"))
+    }
+
+    @Test func normalizeA16BitsLlevaDither() {
+        var o = AudioConverter.Options()
+        o.audioFilter = "loudnorm=x"
+        o.forceSampleRate = true
+        let a = AudioConverter.arguments(input: input, output: output, target: .wav, info: info(codec: "pcm_s16le", bps: 16),
+                                         isVideoSource: false, aacAT: true, options: o)
+        #expect(value(a, "-af") == "loudnorm=x,aresample=44100:filter_size=64:phase_shift=14:linear_interp=1:osf=s16:dither_method=triangular_hp")
     }
 
     @Test func mismoFormatoOWAV() {

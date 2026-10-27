@@ -18,7 +18,7 @@ enum ImageTools {
                                      properties: ImageConverter.outputProperties(from: loaded.properties, keepEXIFAndGPS: false))
             return "png"
         }
-        try ImageConverter.writeJPEG(loaded, to: output, quality: 0.7, keepMetadata: false)
+        try ImageConverter.writeJPEG(loaded, to: output, quality: 0.8, keepMetadata: false)
         return "jpg"
     }
 
