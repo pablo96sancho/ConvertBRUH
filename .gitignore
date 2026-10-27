@@ -10,3 +10,5 @@ DerivedData/
 Resources/bin/
 ConvertBRUH-Paso0/App/build/
 ConvertBRUH-Paso0/.build/
+
+.vscode/
